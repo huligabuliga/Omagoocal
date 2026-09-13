@@ -22,6 +22,57 @@ Item {
   readonly property real rowHeight: (height - headHeight) / 6
   readonly property int chipCapacity: Math.max(1, Math.floor((rowHeight - Style.space(26)) / Style.space(18)))
 
+  // A press begins as the existing "open this day" click. Once it travels
+  // far enough it becomes an all-day range selection instead. The MouseArea
+  // that accepted the press keeps receiving positions outside its own cell,
+  // so one gesture can cross week rows.
+  property var dragStart: null
+  property var dragEnd: null
+  property bool draggingRange: false
+  property real pressX: 0
+  property real pressY: 0
+
+  function dateAt(x, y) {
+    var column = Math.max(0, Math.min(6, Math.floor((x - weekColumn) / cellWidth)))
+    var week = Math.max(0, Math.min(5, Math.floor((y - headHeight) / rowHeight)))
+    return weeks[week][column]
+  }
+
+  function beginRange(day, area, mouse) {
+    var point = area.mapToItem(root, mouse.x, mouse.y)
+    dragStart = day
+    dragEnd = day
+    draggingRange = false
+    pressX = point.x
+    pressY = point.y
+  }
+
+  function moveRange(area, mouse) {
+    if (!dragStart) return false
+    var point = area.mapToItem(root, mouse.x, mouse.y)
+    var dx = point.x - pressX, dy = point.y - pressY
+    if (!draggingRange && Math.sqrt(dx * dx + dy * dy) < Style.space(6)) return false
+    draggingRange = true
+    dragEnd = dateAt(point.x, point.y)
+    return true
+  }
+
+  function finishRange() {
+    if (draggingRange && dragStart && dragEnd)
+      panel.compose(dragStart, true, dragEnd)
+    cancelRange()
+  }
+
+  function cancelRange() {
+    dragStart = null
+    dragEnd = null
+    draggingRange = false
+  }
+
+  function selected(day) {
+    return draggingRange && Model.dayInRange(day, dragStart, dragEnd)
+  }
+
   Column {
     anchors.fill: parent
     spacing: 0
@@ -109,8 +160,18 @@ Item {
 
               Rectangle {
                 anchors.fill: parent
-                color: cellMouse.containsMouse ? Util.alpha(root.panel.ink, 0.035) : "transparent"
+                color: root.selected(cell.modelData)
+                  ? Util.alpha(Color.accent, root.panel.lightSurface ? 0.20 : 0.14)
+                  : (cellMouse.containsMouse ? Util.alpha(root.panel.ink, 0.035) : "transparent")
                 Behavior on color { ColorAnimation { duration: 120 } }
+              }
+
+              Rectangle {
+                anchors.fill: parent
+                visible: root.selected(cell.modelData)
+                color: "transparent"
+                border.width: 1
+                border.color: Util.alpha(Color.accent, 0.72)
               }
 
               Rectangle {
@@ -125,9 +186,27 @@ Item {
                 id: cellMouse
                 anchors.fill: parent
                 hoverEnabled: true
+                property bool dragged: false
+                onPressed: function(mouse) {
+                  dragged = false
+                  root.beginRange(cell.modelData, cellMouse, mouse)
+                }
+                onPositionChanged: function(mouse) {
+                  if (pressed && root.moveRange(cellMouse, mouse)) dragged = true
+                }
+                onReleased: {
+                  if (dragged) root.finishRange()
+                  else root.cancelRange()
+                }
+                onCanceled: {
+                  dragged = false
+                  root.cancelRange()
+                }
                 onClicked: {
-                  root.panel.anchor = cell.modelData
-                  root.panel.setView("day")
+                  if (!dragged) {
+                    root.panel.anchor = cell.modelData
+                    root.panel.setView("day")
+                  }
                 }
               }
 

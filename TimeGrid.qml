@@ -38,8 +38,8 @@ Item {
     Math.floor(columnWidth / Style.space(150))))
 
   // All-day events get a banner above the grid rather than a 24-hour block
-  // inside it. The banner is only as tall as it needs to be, and vanishes on
-  // weeks that have none.
+  // inside it. Keep one empty row available even when there are no events:
+  // it is the target for clicking or dragging out a new all-day event.
   readonly property var allDayRows: {
     var rows = []
     for (var i = 0; i < days.length; i++)
@@ -47,10 +47,9 @@ Item {
     return rows
   }
   readonly property real headHeight: Style.space(46)
-  readonly property real bandHeight: allDayDepth > 0
-    ? allDayDepth * Style.space(20) + Style.space(8)
-      + (allDayRows.some(function(r) { return r.length > allDayCap }) ? Style.space(14) : 0)
-    : 0
+  readonly property real bandHeight: Math.max(Style.space(28),
+    allDayDepth * Style.space(20) + Style.space(8)
+      + (allDayRows.some(function(r) { return r.length > allDayCap }) ? Style.space(14) : 0))
 
   // `days` and `allDayRows` do not change in the same frame, so a delegate
   // built for a 7-column week can outlive the switch to a 1-column day by an
@@ -69,6 +68,53 @@ Item {
   }
   function allDayHidden(index) {
     return Math.max(0, allDayFor(index).length - allDayCap)
+  }
+
+  property var bandDragStart: null
+  property var bandDragEnd: null
+  property bool bandDragging: false
+  property real bandPressX: 0
+  property real bandPressY: 0
+
+  function allDayAt(x) {
+    var column = Math.max(0, Math.min(days.length - 1,
+      Math.floor((x - railWidth) / columnWidth)))
+    return days[column]
+  }
+
+  function beginAllDayRange(day, area, mouse) {
+    var point = area.mapToItem(root, mouse.x, mouse.y)
+    bandDragStart = day
+    bandDragEnd = day
+    bandDragging = false
+    bandPressX = point.x
+    bandPressY = point.y
+  }
+
+  function moveAllDayRange(area, mouse) {
+    if (!bandDragStart) return false
+    var point = area.mapToItem(root, mouse.x, mouse.y)
+    var dx = point.x - bandPressX, dy = point.y - bandPressY
+    if (!bandDragging && Math.sqrt(dx * dx + dy * dy) < Style.space(6)) return false
+    bandDragging = true
+    bandDragEnd = allDayAt(point.x)
+    return true
+  }
+
+  function finishAllDayRange() {
+    if (bandDragging && bandDragStart && bandDragEnd)
+      panel.compose(bandDragStart, true, bandDragEnd)
+    cancelAllDayRange()
+  }
+
+  function cancelAllDayRange() {
+    bandDragStart = null
+    bandDragEnd = null
+    bandDragging = false
+  }
+
+  function allDaySelected(day) {
+    return bandDragging && Model.dayInRange(day, bandDragStart, bandDragEnd)
   }
 
   Column {
@@ -178,6 +224,40 @@ Item {
             required property int index
             width: root.columnWidth
             height: parent.height
+
+            Rectangle {
+              anchors.fill: parent
+              visible: root.allDaySelected(root.days[dayCell.index])
+              color: Util.alpha(Color.accent, root.panel.lightSurface ? 0.20 : 0.14)
+              border.width: 1
+              border.color: Util.alpha(Color.accent, 0.72)
+            }
+
+            MouseArea {
+              id: allDayMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              property bool dragged: false
+              onPressed: function(mouse) {
+                dragged = false
+                root.beginAllDayRange(root.days[dayCell.index], allDayMouse, mouse)
+              }
+              onPositionChanged: function(mouse) {
+                if (pressed && root.moveAllDayRange(allDayMouse, mouse)) dragged = true
+              }
+              onReleased: {
+                if (dragged) root.finishAllDayRange()
+                else root.cancelAllDayRange()
+              }
+              onCanceled: {
+                dragged = false
+                root.cancelAllDayRange()
+              }
+              onClicked: {
+                if (!dragged)
+                  root.panel.compose(root.days[dayCell.index], true, root.days[dayCell.index])
+              }
+            }
 
             Column {
               anchors.fill: parent

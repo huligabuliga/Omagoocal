@@ -117,6 +117,9 @@ packages only for this plugin, uninstall `gnome-online-accounts-gtk` and
 | Bar right click | Refresh, bypassing every cache |
 | Bar middle click | New event |
 | Grid click | New event at that time, rounded to the half hour |
+| Month drag | New all-day event spanning the selected dates |
+| All-day band click | New one-day all-day event |
+| All-day band drag | New all-day event spanning the selected dates |
 | Event click | Edit |
 | Event middle click | Open in Google Calendar |
 | `+N more` | Too many events to show side by side — opens the day view |
