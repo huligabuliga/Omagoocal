@@ -2,7 +2,7 @@
 const fs = require('fs')
 const src = fs.readFileSync(__dirname + '/Model.js', 'utf8').replace('.pragma library', '')
 const M = {}
-new Function('exports', src + '\n;Object.assign(exports,{weekDays,addMonths,escapeMarkup,isWebLink,luma,isLightSurface,chipAlpha,dayKey,addDays,inclusiveEndDay,exclusiveEndDate,dueNotifications,weekdayLabel,startOfWeek,monthGrid,layout,decorateAll,onDay,splitAllDay,dayBounds,parseStamp,rfc3339,isoWeek,readableOn,relative,weekdayLabels,nextEvent,parseDayInput,parseTimeInput,combine,EVENT_COLORS})')(M)
+new Function('exports', src + '\n;Object.assign(exports,{weekDays,addMonths,escapeMarkup,isWebLink,luma,isLightSurface,chipAlpha,dayKey,addDays,dayRange,dayInRange,inclusiveEndDay,exclusiveEndDate,dueNotifications,weekdayLabel,startOfWeek,monthGrid,layout,decorateAll,onDay,splitAllDay,dayBounds,parseStamp,rfc3339,isoWeek,readableOn,relative,weekdayLabels,nextEvent,parseDayInput,parseTimeInput,combine,EVENT_COLORS})')(M)
 
 const eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(m + ': ' + JSON.stringify(a) + ' != ' + JSON.stringify(b)) }
 const ok = (c, m) => { if (!c) throw new Error(m) }
@@ -151,6 +151,20 @@ eq(marks.reduce((n, m) => n + m.count, 0), 3, 'exactly the surplus is hidden')
 // the weekday label must come from the date, not from a column index
 eq(M.weekdayLabel(new Date(2026, 8, 10)), 'THU', '10 Sep 2026 is a Thursday')
 eq(M.weekdayLabel(new Date(2026, 8, 13)), 'SUN', 'and the 13th a Sunday')
+
+// Date-range selection is direction-independent and remains calendar-based
+// across row, month, year and daylight-saving boundaries.
+let range = M.dayRange(new Date(2026, 8, 18, 16), new Date(2026, 8, 15, 9))
+eq([M.dayKey(range.start), M.dayKey(range.end)], ['2026-09-15', '2026-09-18'], 'backward range is normalized')
+range = M.dayRange(new Date(2026, 11, 31), new Date(2027, 0, 2))
+eq([M.dayKey(range.start), M.dayKey(range.end)], ['2026-12-31', '2027-01-02'], 'range crosses a year')
+ok(M.dayInRange(new Date(2027, 0, 1), range.start, range.end), 'middle day is selected')
+ok(!M.dayInRange(new Date(2027, 0, 3), range.start, range.end), 'day after range is not selected')
+range = M.dayRange(new Date(2026, 2, 7), new Date(2026, 2, 9))
+eq(M.dayKey(M.addDays(range.start, 1)), '2026-03-08', 'range advances by calendar day at DST')
+const draftEnd = M.addDays(range.end, 1)
+const editorEnd = M.inclusiveEndDay({ allDay: true, endAt: draftEnd })
+eq(M.exclusiveEndDate(editorEnd), '2026-03-10', 'selected range round-trips through editor and Google payload')
 
 // notification decisions
 const nowN = new Date(2026, 0, 5, 9, 0)

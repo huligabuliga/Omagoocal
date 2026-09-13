@@ -161,7 +161,7 @@ Panel {
   }
 
   // ------------------------------------------------------------- editing
-  function compose(start, allDay) {
+  function compose(start, allDay, inclusiveEnd) {
     var writable = calendars.filter(function(c) { return c.writable && c.enabled })
     if (!writable.length) { fail("No writable calendar is enabled."); return }
 
@@ -173,6 +173,17 @@ Panel {
       if (writable[i].primary) { target = writable[i]; break }
     }
     var begin = start || new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() + 1, 0)
+    // Drafts keep Google's exclusive all-day end internally because the same
+    // editor also receives API events. The editor turns it back into the
+    // inclusive date a person expects to see.
+    var finish
+    if (allDay === true) {
+      var selected = Model.dayRange(begin, inclusiveEnd || begin)
+      begin = selected.start
+      finish = Model.addDays(selected.end, 1)
+    } else {
+      finish = new Date(begin.getTime() + 3600000)
+    }
     editing = {
       id: "",
       account: target.account,
@@ -180,7 +191,7 @@ Panel {
       title: "",
       allDay: allDay === true,
       startAt: begin,
-      endAt: new Date(begin.getTime() + 3600000),
+      endAt: finish,
       location: "",
       description: "",
       colorId: "",
