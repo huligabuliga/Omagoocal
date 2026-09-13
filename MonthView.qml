@@ -160,18 +160,8 @@ Item {
 
               Rectangle {
                 anchors.fill: parent
-                color: root.selected(cell.modelData)
-                  ? Util.alpha(Color.accent, root.panel.lightSurface ? 0.20 : 0.14)
-                  : (cellMouse.containsMouse ? Util.alpha(root.panel.ink, 0.035) : "transparent")
+                color: cellMouse.containsMouse ? Util.alpha(root.panel.ink, 0.035) : "transparent"
                 Behavior on color { ColorAnimation { duration: 120 } }
-              }
-
-              Rectangle {
-                anchors.fill: parent
-                visible: root.selected(cell.modelData)
-                color: "transparent"
-                border.width: 1
-                border.color: Util.alpha(Color.accent, 0.72)
               }
 
               Rectangle {
@@ -294,6 +284,20 @@ Item {
                   font.family: root.panel.mono
                   font.pixelSize: Style.font.caption
                 }
+              }
+
+              RangePreview {
+                readonly property var selectedRange: root.dragStart && root.dragEnd
+                  ? Model.dayRange(root.dragStart, root.dragEnd) : null
+                x: Style.space(3)
+                y: Style.space(24)
+                width: parent.width - Style.space(6)
+                height: Style.space(16)
+                visible: root.selected(cell.modelData)
+                panel: root.panel
+                showLabel: selectedRange !== null
+                  && Model.sameDay(cell.modelData, selectedRange.start)
+                z: 5
               }
             }
           }

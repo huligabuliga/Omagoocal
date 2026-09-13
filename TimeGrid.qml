@@ -225,14 +225,6 @@ Item {
             width: root.columnWidth
             height: parent.height
 
-            Rectangle {
-              anchors.fill: parent
-              visible: root.allDaySelected(root.days[dayCell.index])
-              color: Util.alpha(Color.accent, root.panel.lightSurface ? 0.20 : 0.14)
-              border.width: 1
-              border.color: Util.alpha(Color.accent, 0.72)
-            }
-
             MouseArea {
               id: allDayMouse
               anchors.fill: parent
@@ -297,6 +289,19 @@ Item {
                   }
                 }
               }
+            }
+
+            RangePreview {
+              readonly property var selectedRange: root.bandDragStart && root.bandDragEnd
+                ? Model.dayRange(root.bandDragStart, root.bandDragEnd) : null
+              x: Style.space(2)
+              width: parent.width - Style.space(4)
+              height: Style.space(18)
+              visible: root.allDaySelected(root.days[dayCell.index])
+              panel: root.panel
+              showLabel: selectedRange !== null
+                && Model.sameDay(root.days[dayCell.index], selectedRange.start)
+              z: 5
             }
           }
         }
