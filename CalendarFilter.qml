@@ -33,7 +33,10 @@ Item {
 
       Button {
         required property var modelData
-        readonly property bool on: modelData.enabled !== false
+        // Read the enabled state from the local config, not the last sync, so
+        // a click flips the chip at once instead of waiting for the refetch
+        // that the toggle sets off.
+        readonly property bool on: root.panel.calendarEnabled(modelData)
 
         text: Model.shortCalendarName(modelData.name)
         tooltipText: (on ? "Hide " : "Show ") + modelData.name
