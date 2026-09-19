@@ -19,6 +19,10 @@ BarWidget {
   // The clock format is a calendar preference, so it lives with the rest of
   // them in the backend config rather than being duplicated into shell.json.
   readonly property bool hours12: panelLoader.item ? panelLoader.item.hours12 === true : false
+  // "Event times: Always" also changes the bar label from "in 5m" to the
+  // event's clock time, since the point of the setting is to see the time
+  // without hovering.
+  readonly property bool clockInBar: panelLoader.item ? panelLoader.item.eventTimes === "always" : false
 
   readonly property var nextEvent: panelLoader.item ? panelLoader.item.nextEvent : null
   property date now: new Date()
@@ -41,7 +45,10 @@ BarWidget {
     if (!nextEvent) return ""
     var title = String(nextEvent.title)
     if (title.length > 22) title = title.substring(0, 21) + "…"
-    return title + "  " + Model.relative(nextEvent.startAt, now)
+    var when = root.clockInBar
+      ? Model.clockLabel(nextEvent.startAt, root.hours12)
+      : Model.relative(nextEvent.startAt, now)
+    return title + "  " + when
   }
 
   function refresh() {

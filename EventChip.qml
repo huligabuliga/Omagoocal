@@ -21,6 +21,14 @@ Rectangle {
 
   readonly property color tint: event ? event.color : panel.ink
 
+  // "eventTimes": "always" draws the start time even where it would otherwise
+  // be dropped for space — on short or narrow chips, and inline on a one-line
+  // month cell. The default "auto" keeps the density trade-off.
+  readonly property bool clockAlways: (panel.eventTimes || "auto") === "always"
+  readonly property bool showClock: !root.compact
+    && (root.clockAlways || (root.height > Style.space(28) && root.width > Style.space(92)))
+  readonly property bool inlineClock: root.compact && root.clockAlways
+
   color: overflow
     ? (hover.containsMouse ? Util.alpha(Color.accent, 0.26) : Util.alpha(panel.ink, 0.13))
     : Util.alpha(tint, Model.chipAlpha(panel.lightSurface, hover.containsMouse))
@@ -81,11 +89,11 @@ Rectangle {
     spacing: 0
 
     // In a narrow lane the start time costs a whole line of a title that has
-    // only a few characters to spend. The tooltip still carries it.
+    // only a few characters to spend. The tooltip still carries it; "Always"
+    // overrides the trade-off.
     Text {
       width: parent.width
-      visible: !root.compact && root.height > Style.space(28)
-        && root.width > Style.space(92)
+      visible: root.showClock
       text: Model.clockLabel(root.event.startAt, root.panel.hours12)
       textFormat: Text.PlainText
       color: Util.alpha(root.panel.ink, 0.6)
@@ -100,7 +108,9 @@ Rectangle {
       verticalAlignment: root.compact ? Text.AlignVCenter : Text.AlignTop
       // Remote text is never parsed as markup — same rule as every
       // first-party Omarchy panel.
-      text: root.event.title
+      text: (root.inlineClock
+        ? Model.clockLabel(root.event.startAt, root.panel.hours12) + "  " : "")
+        + root.event.title
       textFormat: Text.PlainText
       color: root.panel.ink
       font.family: root.panel.mono
