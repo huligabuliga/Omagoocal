@@ -275,6 +275,19 @@ function rangeLabel(ev, ampm) {
   return clockLabel(ev.startAt, ampm) + " – " + clockLabel(ev.endAt, ampm)
 }
 
+// A chip in the calendar filter is a control, not a heading: a long Google name
+// ("Holidays in Spain") would push the whole row onto a second line for no
+// information. Cut at a word boundary when one is close, otherwise elide.
+function shortCalendarName(name, max) {
+  var text = String(name || "").trim()
+  if (text === "") return "Calendar"
+  var limit = max || 18
+  if (text.length <= limit) return text
+  var space = text.lastIndexOf(" ", limit)
+  if (space >= Math.floor(limit / 2)) return text.slice(0, space)
+  return text.slice(0, limit - 1) + "…"
+}
+
 function relative(target, now) {
   var mins = Math.round((target - now) / 60000)
   if (mins < -60) return "started " + Math.round(-mins / 60) + "h ago"

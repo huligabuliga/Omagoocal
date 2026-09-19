@@ -2,7 +2,7 @@
 const fs = require('fs')
 const src = fs.readFileSync(__dirname + '/Model.js', 'utf8').replace('.pragma library', '')
 const M = {}
-new Function('exports', src + '\n;Object.assign(exports,{weekDays,addMonths,escapeMarkup,isWebLink,luma,isLightSurface,chipAlpha,dayKey,addDays,inclusiveEndDay,exclusiveEndDate,dueNotifications,weekdayLabel,startOfWeek,monthGrid,layout,decorateAll,onDay,splitAllDay,dayBounds,parseStamp,rfc3339,isoWeek,readableOn,relative,weekdayLabels,nextEvent,parseDayInput,parseTimeInput,combine,EVENT_COLORS})')(M)
+new Function('exports', src + '\n;Object.assign(exports,{weekDays,addMonths,escapeMarkup,isWebLink,luma,isLightSurface,chipAlpha,dayKey,addDays,inclusiveEndDay,exclusiveEndDate,dueNotifications,weekdayLabel,startOfWeek,monthGrid,layout,decorateAll,onDay,splitAllDay,dayBounds,parseStamp,rfc3339,isoWeek,readableOn,relative,weekdayLabels,nextEvent,parseDayInput,parseTimeInput,combine,shortCalendarName,EVENT_COLORS})')(M)
 
 const eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(m + ': ' + JSON.stringify(a) + ' != ' + JSON.stringify(b)) }
 const ok = (c, m) => { if (!c) throw new Error(m) }
@@ -241,5 +241,12 @@ eq(M.addMonths(new Date(2026, 11, 15), 1).getFullYear(), 2027, 'month stepping c
 eq(M.dayKey(M.addDays(new Date(2026, 11, 31), 1)), '2027-01-01', 'day stepping crosses the year')
 const wk = M.weekDays(new Date(2026, 0, 1), 1)
 eq([M.dayKey(wk[0]), M.dayKey(wk[6])], ['2025-12-29', '2026-01-04'], 'a week that straddles New Year')
+
+// calendar-filter chip labels stay one short line
+eq(M.shortCalendarName('Work'), 'Work', 'a short name passes through')
+eq(M.shortCalendarName('Very long calendar name indeed'), 'Very long calendar', 'cut at a word boundary')
+ok(M.shortCalendarName('Supercalifragilisticexpialidocious').length <= 18, 'a long single word is bounded')
+ok(M.shortCalendarName('Supercalifragilisticexpialidocious').indexOf('…') !== -1, 'and elided')
+eq(M.shortCalendarName(''), 'Calendar', 'an empty name still yields a chip')
 
 console.log('all checks passed')
