@@ -2,7 +2,7 @@
 const fs = require('fs')
 const src = fs.readFileSync(__dirname + '/Model.js', 'utf8').replace('.pragma library', '')
 const M = {}
-new Function('exports', src + '\n;Object.assign(exports,{weekDays,addMonths,escapeMarkup,isWebLink,luma,isLightSurface,chipAlpha,dayKey,addDays,inclusiveEndDay,exclusiveEndDate,dueNotifications,weekdayLabel,startOfWeek,monthGrid,layout,decorateAll,onDay,splitAllDay,dayBounds,parseStamp,rfc3339,isoWeek,readableOn,relative,weekdayLabels,nextEvent,parseDayInput,parseTimeInput,combine,EVENT_COLORS})')(M)
+new Function('exports', src + '\n;Object.assign(exports,{weekDays,addMonths,escapeMarkup,isWebLink,luma,isLightSurface,chipAlpha,dayKey,addDays,inclusiveEndDay,exclusiveEndDate,dueNotifications,weekdayLabel,startOfWeek,monthGrid,layout,decorateAll,onDay,splitAllDay,dayBounds,parseStamp,rfc3339,isoWeek,readableOn,relative,weekdayLabels,nextEvent,parseDayInput,parseTimeInput,combine,legible,contrast,EVENT_COLORS})')(M)
 
 const eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(m + ': ' + JSON.stringify(a) + ' != ' + JSON.stringify(b)) }
 const ok = (c, m) => { if (!c) throw new Error(m) }
@@ -241,5 +241,14 @@ eq(M.addMonths(new Date(2026, 11, 15), 1).getFullYear(), 2027, 'month stepping c
 eq(M.dayKey(M.addDays(new Date(2026, 11, 31), 1)), '2027-01-01', 'day stepping crosses the year')
 const wk = M.weekDays(new Date(2026, 0, 1), 1)
 eq([M.dayKey(wk[0]), M.dayKey(wk[6])], ['2025-12-29', '2026-01-04'], 'a week that straddles New Year')
+
+// The imminent bar label wears the event's colour; on a light theme a pale one
+// has to be moved far enough from the bar's ground to be read.
+ok(M.contrast(M.legible('#ffff00', '#ffffff', '#000000'), '#ffffff') >= 2.2,
+  'yellow is made legible on a white bar')
+eq(M.legible('#ffff00', '#000000', '#ffffff'), '#ffff00', 'yellow is left alone on a dark bar')
+eq(M.legible('#0046f5', '#ffffff', '#000000'), '#0046f5', 'a legible colour is untouched')
+ok(M.contrast(M.legible('#222222', '#000000', '#ffffff'), '#000000') >= 2.2,
+  'a dark colour is lifted on a dark bar')
 
 console.log('all checks passed')

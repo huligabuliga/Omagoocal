@@ -310,6 +310,65 @@ function isLightSurface(hex) {
   return luma(hex) > 128
 }
 
+// ------------------------------------------------------------ legibility
+//
+// Google's colours are chosen against a white web page, so a yellow calendar is
+// invisible as a light theme's bar label. readableOn() picks ink to draw *on* a
+// colour; this goes the other way and moves a colour toward the bar's ink until
+// it can be read *against* the bar's ground, keeping the hue recognisable.
+
+function _channels(hex) {
+  var c = String(hex || "").replace("#", "")
+  if (c.length === 8) c = c.substr(2)          // #aarrggbb
+  if (c.length === 3) c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2]
+  if (c.length !== 6) return null
+  var r = parseInt(c.substr(0, 2), 16)
+  var g = parseInt(c.substr(2, 2), 16)
+  var b = parseInt(c.substr(4, 2), 16)
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return null
+  return [r, g, b]
+}
+
+function _luminance(rgb) {
+  var out = []
+  for (var i = 0; i < 3; i++) {
+    var v = rgb[i] / 255
+    out.push(v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))
+  }
+  return 0.2126 * out[0] + 0.7152 * out[1] + 0.0722 * out[2]
+}
+
+// WCAG contrast ratio between two colours; 21 when either cannot be parsed.
+function contrast(a, b) {
+  var x = _channels(a), y = _channels(b)
+  if (x === null || y === null) return 21
+  var la = _luminance(x), lb = _luminance(y)
+  var hi = Math.max(la, lb), lo = Math.min(la, lb)
+  return (hi + 0.05) / (lo + 0.05)
+}
+
+function _hex(v) {
+  var s = Math.round(Math.max(0, Math.min(255, v))).toString(16)
+  return s.length < 2 ? "0" + s : s
+}
+
+// The colour, moved toward `ink` until it clears `minimum` against `ground`.
+function legible(colour, ground, ink, minimum) {
+  minimum = minimum || 2.2
+  var source = _channels(colour), target = _channels(ink)
+  if (source === null || target === null) return ink
+  if (contrast(colour, ground) >= minimum) return colour
+  var current = source.slice()
+  for (var step = 0; step < 12; step++) {
+    for (var ch = 0; ch < 3; ch++) {
+      current[ch] = current[ch] + (target[ch] - current[ch]) * 0.2
+    }
+    var candidate = "#" + _hex(current[0]) + _hex(current[1]) + _hex(current[2])
+    if (contrast(candidate, ground) >= minimum) return candidate
+  }
+  return ink
+}
+
 // How hard to wash an event's colour into the surface behind it.
 //
 // A 16% tint of a saturated colour reads clearly on a dark ground and washes

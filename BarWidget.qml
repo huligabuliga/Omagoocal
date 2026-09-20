@@ -23,6 +23,11 @@ BarWidget {
   readonly property var nextEvent: panelLoader.item ? panelLoader.item.nextEvent : null
   property date now: new Date()
 
+  // The bar's own ground and ink, so the imminent label's colour can be made
+  // legible against them rather than trusted as-is.
+  readonly property color barGround: bar ? bar.background : Color.background
+  readonly property color barInk: bar ? bar.barForeground : Color.foreground
+
   // Inside this window the pill wears the event's colour. Two minutes of
   // amber is noise; the last stretch before a meeting is the part that needs
   // to catch an eye that is not looking.
@@ -122,10 +127,12 @@ BarWidget {
       : "No upcoming events"
 
     // Colour is the signal, so it moves before it is read. A running event
-    // holds the colour steady; one that is merely close breathes.
+    // holds the colour steady; one that is merely close breathes. The colour is
+    // made legible against the bar first: a yellow calendar on a light theme
+    // would otherwise paint the label in near-invisible yellow.
     foreground: root.imminent && root.nextEvent
-      ? root.nextEvent.color
-      : (root.bar ? root.bar.barForeground : Color.foreground)
+      ? Model.legible(root.nextEvent.color, root.barGround, root.barInk)
+      : root.barInk
 
     Behavior on foreground { ColorAnimation { duration: 400; easing.type: Easing.OutCubic } }
 
