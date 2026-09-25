@@ -82,6 +82,10 @@ DEFAULTS = {
     "dayStartHour": 7,
     "refreshMinutes": 5,
     "snapshot": True,       # keep the last sync on disk so opens are instant
+    # "auto": show a chip's start time only when the chip is big enough for
+    # it. "always": show it even on short, narrow and one-line (month) chips,
+    # and put the clock time in the bar label instead of "in 5m".
+    "eventTimes": "auto",
 }
 
 # Accepted ranges for the numeric and enumerated preferences. Anything else,
@@ -93,7 +97,7 @@ CONFIG_RANGES = {
     "dayStartHour": (0, 23),
     "refreshMinutes": (1, 1440),
 }
-CONFIG_ENUMS = {"defaultView": ("day", "week", "month")}
+CONFIG_ENUMS = {"defaultView": ("day", "week", "month"), "eventTimes": ("auto", "always")}
 
 
 def _coerce_config(raw):

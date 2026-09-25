@@ -93,6 +93,10 @@ Panel {
   readonly property int dayStartHour: cfg.dayStartHour === undefined ? 7 : cfg.dayStartHour
   readonly property int refreshMinutes: Math.max(1, cfg.refreshMinutes || 5)
   readonly property bool hours12: cfg.hours12 === true
+  // "auto" (default) keeps the density trade-off: a chip shows its start time
+  // only when it has room. "always" shows it regardless, so a glance needs no
+  // hover, and the bar label switches from "in 5m" to the clock time.
+  readonly property string eventTimes: cfg.eventTimes || "auto"
   readonly property bool connected: accounts.length > 0
   readonly property var nextEvent: Model.nextEvent(events, now)
 

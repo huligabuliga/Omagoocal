@@ -356,6 +356,8 @@ assert c["notifyMinutes"] == 10 and c["weekStart"] == 1 and c["defaultView"] == 
 assert c["hours12"] is False and c["calendars"] == {} and "evil" not in c and c["refreshMinutes"] == 5
 c = gcal._coerce_config({"weekStart": 0, "calendars": {"a\tb": False, "c": "no"}, "snapshot": False})
 assert c["weekStart"] == 0 and c["calendars"] == {"a\tb": False} and c["snapshot"] is False
+assert gcal._coerce_config({"eventTimes": "always"})["eventTimes"] == "always"
+assert gcal._coerce_config({"eventTimes": "sometimes"})["eventTimes"] == "auto"
 assert gcal._coerce_config("garbage") == gcal.DEFAULTS
 _sys.stdin = io.StringIO(json.dumps({"evil": 1, "dayStartHour": 99, "notifyMinutes": 15}) + "\n")
 gcal.main(["setall"])
