@@ -10,6 +10,22 @@ function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDat
 function addMonths(d, n) { return new Date(d.getFullYear(), d.getMonth() + n, 1) }
 function sameDay(a, b) { return dayKey(a) === dayKey(b) }
 
+// A drag may run in either direction. Keep the dates at local midnight: using
+// elapsed milliseconds here would make a range slip by an hour at DST.
+function dayRange(a, b) {
+  var first = startOfDay(a), last = startOfDay(b)
+  return first <= last
+    ? { start: first, end: last }
+    : { start: last, end: first }
+}
+
+function dayInRange(day, a, b) {
+  if (!day || !a || !b) return false
+  var range = dayRange(a, b)
+  var value = startOfDay(day)
+  return value >= range.start && value <= range.end
+}
+
 function pad(n) { return (n < 10 ? "0" : "") + n }
 
 function dayKey(d) {
