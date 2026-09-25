@@ -117,9 +117,24 @@ Rectangle {
       font.pixelSize: Style.font.caption
     }
 
+    // The same call glyph the stacked layout puts beside the clock: a
+    // 15-minute standup with a link is still a call.
     Text {
+      id: tightCall
       anchors.left: tightTime.visible ? tightTime.right : parent.left
       anchors.leftMargin: Style.space(tightTime.visible ? 5 : 6)
+      anchors.verticalCenter: parent.verticalCenter
+      visible: root.hasCall
+      text: "󰕧"
+      color: Util.alpha(root.panel.ink, 0.7)
+      font.family: root.panel.mono
+      font.pixelSize: Style.font.caption
+    }
+
+    Text {
+      anchors.left: tightCall.visible ? tightCall.right
+        : (tightTime.visible ? tightTime.right : parent.left)
+      anchors.leftMargin: Style.space(tightCall.visible || tightTime.visible ? 5 : 6)
       anchors.right: parent.right
       anchors.rightMargin: Style.space(4)
       anchors.verticalCenter: parent.verticalCenter
