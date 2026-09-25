@@ -456,18 +456,18 @@ function isWebLink(url) {
 // was written.
 var MEETING_HOSTS = [
   { name: "Google Meet",   re: /^meet\.google\.com\// },
-  { name: "Zoom",          re: /(^|\.)zoom\.us\/|(^|\.)zoomgov\.com\// },
+  { name: "Zoom",          re: /^([^\/]*\.)?zoom\.us\/|^([^\/]*\.)?zoomgov\.com\// },
   { name: "Microsoft Teams", re: /^teams\.(microsoft\.com|live\.com|microsoft\.us)\// },
-  { name: "Webex",         re: /(^|\.)webex\.com\// },
+  { name: "Webex",         re: /^([^\/]*\.)?webex\.com\// },
   { name: "Jitsi Meet",    re: /^meet\.jit\.si\/|^8x8\.vc\// },
-  { name: "Whereby",       re: /(^|\.)whereby\.com\// },
-  { name: "GoTo Meeting",  re: /(^|\.)gotomeeting\.com\/|^gotomeet\.me\// },
-  { name: "BlueJeans",     re: /(^|\.)bluejeans\.com\// },
-  { name: "Amazon Chime",  re: /(^|\.)chime\.aws\// },
-  { name: "Slack huddle",  re: /(^|\.)slack\.com\/huddle\// },
-  { name: "Discord",       re: /^discord\.gg\/|(^|\.)discord\.com\/(channels|events)\// },
+  { name: "Whereby",       re: /^([^\/]*\.)?whereby\.com\// },
+  { name: "GoTo Meeting",  re: /^([^\/]*\.)?gotomeeting\.com\/|^gotomeet\.me\// },
+  { name: "BlueJeans",     re: /^([^\/]*\.)?bluejeans\.com\// },
+  { name: "Amazon Chime",  re: /^([^\/]*\.)?chime\.aws\// },
+  { name: "Slack huddle",  re: /^([^\/]*\.)?slack\.com\/huddle\// },
+  { name: "Discord",       re: /^discord\.gg\/|^([^\/]*\.)?discord\.com\/(channels|events)\// },
   { name: "Skype",         re: /^join\.skype\.com\// },
-  { name: "Around",        re: /(^|\.)around\.co\// }
+  { name: "Around",        re: /^([^\/]*\.)?around\.co\// }
 ]
 
 // Host and path of an https URL, or null. Hand-rolled because the engine
@@ -488,6 +488,8 @@ function linkParts(url) {
 }
 
 // The provider a link belongs to, or "" for anything not on the list above.
+// Every pattern is anchored at the start of the host: the host is judged
+// before the path, so "evil.example/x.zoom.us/" is evil.example, not Zoom.
 function meetingProvider(url) {
   var parts = linkParts(url)
   if (!parts) return ""

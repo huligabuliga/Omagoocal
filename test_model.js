@@ -301,6 +301,10 @@ eq(M.meetingProvider('https://app.slack.com/huddle/T01/C02'), 'Slack huddle', 'a
 eq(M.meetingProvider('https://app.slack.com/client/T01/C02'), '', 'a Slack channel is not')
 eq(M.meetingProvider('https://docs.google.com/document/d/1'), '', 'a doc is not a call')
 eq(M.meetingProvider('https://zoom.us.evil.example/j/1'), '', 'a lookalike host matches nothing')
+eq(M.meetingProvider('https://evil.example/x.zoom.us/j/1'), '', 'a provider host inside the path is not the host')
+eq(M.meetingProvider('https://evil.example/a.webex.com/'), '', 'nor is one inside the path with a subdomain')
+eq(M.meetingProvider('https://app.slack.com/huddle/T01/C02'), 'Slack huddle', 'a path-qualified host still matches')
+eq(M.meetingProvider('https://discord.com/channels/1/2'), 'Discord', 'a bare host with a path rule matches')
 
 // links written by hand, with the sentence's punctuation left behind
 eq(M.scrapeLinks('We are on https://meet.google.com/abc-defg-hij.'),
