@@ -17,6 +17,13 @@ Rectangle {
   property bool overflow: false         // "+N more", not a real event
   property bool past: event && event.endAt < panel.now && !overflow
 
+  // Too short to stack a time above a title. A quarter-hour block is about
+  // one line of text tall, and the stacked layout spent that line on the
+  // start time and then clipped the title through the middle — the two
+  // things you actually read, both unreadable. Below this the chip puts them
+  // side by side on the one line it has.
+  readonly property bool tight: !compact && !overflow && height < Style.space(30)
+
   signal overflowClicked()
 
   readonly property color tint: event ? event.color : panel.ink
@@ -80,9 +87,46 @@ Rectangle {
     font.bold: true
   }
 
+  // ---- Short event: one line, time then title, centred in what height
+  //      there is. Two Texts rather than one concatenated string, because
+  //      the title is somebody else's text and never shares a run with ours.
+  Item {
+    anchors.fill: parent
+    visible: root.tight
+
+    Text {
+      id: tightTime
+      anchors.left: parent.left
+      anchors.leftMargin: Style.space(6)
+      anchors.verticalCenter: parent.verticalCenter
+      // Under a narrow lane the clock eats the title it was meant to
+      // introduce; the tooltip still carries it.
+      visible: root.width > Style.space(104)
+      text: root.event ? Model.clockLabel(root.event.startAt, root.panel.hours12) : ""
+      textFormat: Text.PlainText
+      color: Util.alpha(root.panel.ink, 0.6)
+      font.family: root.panel.mono
+      font.pixelSize: Style.font.caption
+    }
+
+    Text {
+      anchors.left: tightTime.visible ? tightTime.right : parent.left
+      anchors.leftMargin: Style.space(tightTime.visible ? 5 : 6)
+      anchors.right: parent.right
+      anchors.rightMargin: Style.space(4)
+      anchors.verticalCenter: parent.verticalCenter
+      text: root.event ? root.event.title : ""
+      textFormat: Text.PlainText
+      color: root.panel.ink
+      font.family: root.panel.mono
+      font.pixelSize: Style.font.caption
+      elide: Text.ElideRight
+    }
+  }
+
   Column {
     anchors.fill: parent
-    visible: !root.overflow
+    visible: !root.overflow && !root.tight
     anchors.leftMargin: Style.space(6)
     anchors.rightMargin: Style.space(4)
     anchors.topMargin: root.compact ? 0 : Style.space(2)

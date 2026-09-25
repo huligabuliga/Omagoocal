@@ -18,7 +18,10 @@ Item {
 
   readonly property var days: panel.viewDays
   readonly property real railWidth: Style.space(54)
-  readonly property real hourHeight: Style.space(46)
+  // Set in settings, not fixed here: how tall an hour has to be depends
+  // entirely on how short the shortest event you care about is. A quarter of
+  // this is what a 15-minute block gets.
+  readonly property real hourHeight: Style.space(panel.hourHeight)
   readonly property real gridHeight: hourHeight * 24
   readonly property real columnWidth: days.length > 0
     ? (width - railWidth) / days.length

@@ -358,6 +358,21 @@ c = gcal._coerce_config({"weekStart": 0, "calendars": {"a\tb": False, "c": "no"}
 assert c["weekStart"] == 0 and c["calendars"] == {"a\tb": False} and c["snapshot"] is False
 assert gcal._coerce_config({"eventTimes": "always"})["eventTimes"] == "always"
 assert gcal._coerce_config({"eventTimes": "sometimes"})["eventTimes"] == "auto"
+
+# -- the bar filter is a second map of the same shape, and independent of the
+#    first: muting a calendar in the bar must not switch it off on the grid
+c = gcal._coerce_config({"barCalendars": {"a\tb": False, "c\td": True, "e": 7}})
+assert c["barCalendars"] == {"a\tb": False, "c\td": True}, "str->bool only"
+assert c["calendars"] == {}, "the two maps do not leak into each other"
+assert gcal.DEFAULTS["barCalendars"] == {}, "absent means shown, so the default is empty"
+assert gcal._coerce_config({"barCalendars": "no"})["barCalendars"] == {}
+
+# -- hour height is a pixel count with a floor that keeps a quarter hour legible
+assert gcal._coerce_config({})["hourHeight"] == 64
+assert gcal._coerce_config({"hourHeight": 88})["hourHeight"] == 88
+assert gcal._coerce_config({"hourHeight": 12})["hourHeight"] == 64, "below the floor falls back"
+assert gcal._coerce_config({"hourHeight": 5000})["hourHeight"] == 64, "and above the ceiling"
+assert gcal._coerce_config({"hourHeight": True})["hourHeight"] == 64, "a bool is not a height"
 assert gcal._coerce_config("garbage") == gcal.DEFAULTS
 _sys.stdin = io.StringIO(json.dumps({"evil": 1, "dayStartHour": 99, "notifyMinutes": 15}) + "\n")
 gcal.main(["setall"])

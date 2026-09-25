@@ -112,7 +112,7 @@ packages only for this plugin, uninstall `gnome-online-accounts-gtk` and
 
 | Where | Action |
 |---|---|
-| Bar label | Next event and how long you have. It takes that event's colour in the last 15 minutes before it starts; with nothing upcoming, just the glyph. |
+| Bar label | Next event and how long you have, from the calendars you left switched on for the bar. It takes that event's colour in the last 15 minutes before it starts; with nothing upcoming, just the glyph. |
 | Bar left click | Open the calendar |
 | Bar right click | Refresh, bypassing every cache |
 | Bar middle click | New event |
@@ -136,8 +136,43 @@ omarchy-shell omagoocal refresh
 ## Settings
 
 Reachable from the gear, or `,`. Connected accounts (add and remove), which
-calendars to show, notification lead time, opening view, week start, 12/24
-hour clock, the hour the grid opens on, and refresh interval.
+calendars to show, which of those the bar may name, notification lead time,
+opening view, week start, 12/24 hour clock, the hour the grid opens on, how
+tall an hour is, and refresh interval.
+
+### Keeping a calendar out of the bar
+
+Each calendar has two controls, not one. The switch is visibility: off, and
+the calendar is gone from every view. **BAR**, beside it, is narrower — the
+calendar stays on the grid, but the bar will not name its events.
+
+That is for the shared calendars. A team PTO calendar or a company-wide
+holiday feed is worth having on your week and worthless as the one line a
+status bar has: it parks something there for days and the bar stops telling
+you anything about your own day. Switch BAR off for those and the bar goes
+back to naming the next thing you actually have to be at.
+
+The two are stored separately, and a calendar that appears after you last
+touched the setting is shown in the bar until you say otherwise — a meeting
+you never see is the worse failure. Muting a calendar in the bar is a filter
+over events already fetched, so it takes effect without a refresh.
+
+It is the bar label only. Notifications still follow the visibility switch:
+if a calendar is on, its events still notify. Turn the calendar off, or set
+the lead time to Off, if you want neither.
+
+### Hour height
+
+How many pixels an hour gets on the day and week grid, before the theme's
+spacing scale. It sets what a short event has to work with: a quarter of it.
+The default, **Comfortable**, gives a 15-minute event a line of text with
+room around it. **Compact** is the old, denser grid — short events stay
+readable there too, they just sit closer together. **Roomy** and **Tall**
+trade visible hours for air.
+
+Short events are drawn differently from long ones whatever the height:
+below about two lines, the start time and the title share the one line the
+chip has instead of being stacked, which is what used to clip both.
 
 Preferences live in `~/.local/state/omagoocal/config.json`, alongside a
 one-hour cache of calendar lists and, by default, the last sync result so

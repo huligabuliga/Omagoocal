@@ -182,6 +182,7 @@ Item {
     if (!fromCache && !configProc.running && !configDirty) {
       var incoming = status.config || {}
       if (calendarsLocal) incoming.calendars = cfg.calendars
+      if (barCalendarsLocal) incoming.barCalendars = cfg.barCalendars
       cfg = incoming
     }
     accounts = status.accounts || []
@@ -241,6 +242,9 @@ Item {
   // they clicked would otherwise hand back the old value and bounce the
   // switch — which is exactly what "I have to click it twice" looks like.
   property bool calendarsLocal: false
+  // Same, for the bar map. Kept apart so touching one switch does not make us
+  // the authority on the other.
+  property bool barCalendarsLocal: false
 
   function setConfig(key, value) {
     var next = {}
@@ -258,7 +262,7 @@ Item {
     configProc.running = true
   }
 
-  function calendarKey(cal) { return cal.account + "\t" + cal.id }
+  function calendarKey(cal) { return Model.calendarKey(cal.account, cal.id) }
 
   // Read from the local config, not from the last sync: this is what makes a
   // toggle land on the first click instead of the third.
@@ -274,6 +278,24 @@ Item {
     calendarsLocal = true
     refreshAfterConfig = true
     setConfig("calendars", map)
+  }
+
+  // ---- Which calendars the bar label may name.
+  //
+  // Purely a display filter over events we already hold, so unlike the
+  // calendar switch above it costs no refetch: no `refreshAfterConfig`.
+  readonly property var barCalendars: cfg.barCalendars || ({})
+
+  function calendarInBar(cal) {
+    return barCalendars[calendarKey(cal)] !== false
+  }
+
+  function toggleBarCalendar(cal) {
+    var map = {}
+    for (var k in barCalendars) map[k] = barCalendars[k]
+    map[calendarKey(cal)] = !calendarInBar(cal)
+    barCalendarsLocal = true
+    setConfig("barCalendars", map)
   }
 
   // Sign-in is GOA's window, showing Google's own consent screen. The shell

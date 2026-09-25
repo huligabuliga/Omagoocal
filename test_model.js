@@ -2,7 +2,10 @@
 const fs = require('fs')
 const src = fs.readFileSync(__dirname + '/Model.js', 'utf8').replace('.pragma library', '')
 const M = {}
-new Function('exports', src + '\n;Object.assign(exports,{weekDays,addMonths,escapeMarkup,isWebLink,luma,isLightSurface,chipAlpha,dayKey,addDays,inclusiveEndDay,exclusiveEndDate,dueNotifications,weekdayLabel,startOfWeek,monthGrid,layout,decorateAll,onDay,splitAllDay,dayBounds,parseStamp,rfc3339,isoWeek,readableOn,relative,weekdayLabels,nextEvent,parseDayInput,parseTimeInput,combine,legible,contrast,EVENT_COLORS})')(M)
+// Every top-level function and var in Model.js is exported, so a new helper
+// needs no edit here (and two branches adding one no longer conflict).
+const names = [...src.matchAll(/^(?:function|var)\s+([A-Za-z_]\w*)/gm)].map(m => m[1])
+new Function('exports', src + '\n;Object.assign(exports,{' + names.join(',') + '})')(M)
 
 const eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(m + ': ' + JSON.stringify(a) + ' != ' + JSON.stringify(b)) }
 const ok = (c, m) => { if (!c) throw new Error(m) }
@@ -78,6 +81,23 @@ const now = new Date(2026, 0, 5, 8, 30)
 eq(M.relative(new Date(2026, 0, 5, 9, 0), now), 'in 30m', 'relative minutes')
 eq(M.relative(new Date(2026, 0, 5, 11, 15), now), 'in 2h 45m', 'relative hours')
 eq(M.nextEvent(week, now).id, 'm', 'next event skips all-day banners')
+
+// the bar's calendar filter: absent means shown, only an explicit false mutes
+const barred = M.decorateAll([
+  { id: 'pto', account: 'me@x', calendarId: 'team', start: '2026-01-05T09:00:00', end: '2026-01-05T09:30:00' },
+  { id: 'mine', account: 'me@x', calendarId: 'primary', start: '2026-01-05T11:00:00', end: '2026-01-05T12:00:00' },
+])
+eq(M.calendarKey('me@x', 'team'), 'me@x\tteam', 'key is account and id, tab-joined')
+eq(M.nextEvent(barred, now).id, 'pto', 'with no map the nearest event wins')
+eq(M.nextEvent(barred, now, {}).id, 'pto', 'an empty map mutes nothing')
+eq(M.nextEvent(barred, now, { 'me@x\tteam': false }).id, 'mine', 'a muted calendar is skipped')
+eq(M.nextEvent(barred, now, { 'me@x\tteam': true }).id, 'pto', 'an explicit true is shown')
+eq(M.nextEvent(barred, now, { 'other@x\tteam': false }).id, 'pto',
+   'the key carries the account, so the same calendar id elsewhere is untouched')
+eq(M.nextEvent(barred, now, { 'me@x\tteam': false, 'me@x\tprimary': false }), null,
+   'everything muted names nothing')
+ok(M.shownInBar(barred[0], undefined), 'no map at all is not a mute')
+ok(!M.shownInBar(barred[0], { 'me@x\tteam': false }), 'and false is')
 
 // typed input is a trust boundary: junk must come back null, not a wrong date
 eq(M.parseDayInput('2026-02-31'), null, 'impossible date is rejected, not rolled over')

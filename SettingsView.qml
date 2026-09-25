@@ -285,6 +285,17 @@ Flickable {
         font.letterSpacing: 2.0
       }
 
+      // Two switches per calendar need one line saying why there are two.
+      Text {
+        width: parent.width
+        text: "The switch hides a calendar everywhere. BAR leaves it on the grid "
+            + "but stops the bar naming its events."
+        color: root.panel.faint
+        wrapMode: Text.WordWrap
+        font.family: root.panel.mono
+        font.pixelSize: Style.font.caption
+      }
+
       // Grouped by account. With a dozen calendars across two accounts, the
       // account belongs in a heading once, not repeated down the right edge
       // of every single row.
@@ -313,6 +324,7 @@ Flickable {
               id: calRow
               required property var modelData
               readonly property bool on: root.panel.calendarEnabled(modelData)
+              readonly property bool inBar: root.panel.calendarInBar(modelData)
 
               width: column.width
               // A comfortable row, and the whole of it is the hit target —
@@ -354,7 +366,7 @@ Flickable {
                 anchors.left: swatch.right
                 anchors.leftMargin: Style.space(10)
                 anchors.right: calQualifier.left
-                anchors.rightMargin: Style.space(10)
+                anchors.rightMargin: Style.space(8)
                 anchors.verticalCenter: parent.verticalCenter
                 text: calRow.modelData.name
                 textFormat: Text.PlainText
@@ -367,13 +379,44 @@ Flickable {
 
               Text {
                 id: calQualifier
-                anchors.right: calSwitch.left
-                anchors.rightMargin: Style.space(12)
+                anchors.right: barToggle.left
+                anchors.rightMargin: Style.space(10)
                 anchors.verticalCenter: parent.verticalCenter
                 text: calRow.modelData.writable ? "" : "read-only"
                 color: root.panel.faint
                 font.family: root.panel.mono
                 font.pixelSize: Style.font.caption
+              }
+
+              // Not a second visibility switch: a filter on the one line the
+              // bar has. A calendar already switched off has no events to
+              // offer it, so the control goes quiet rather than lying.
+              Button {
+                id: barToggle
+                anchors.right: calSwitch.left
+                anchors.rightMargin: Style.space(12)
+                anchors.verticalCenter: parent.verticalCenter
+                enabled: calRow.on
+                opacity: calRow.on ? 1 : 0.35
+                text: "BAR"
+                bordered: true
+                tooltipText: calRow.inBar
+                  ? "Shown in the bar — click to keep this calendar out of the bar label"
+                  : "Hidden from the bar. Its events still show on the grid."
+                // On/off is carried by a wash of the accent rather than the
+                // kit's `selected` fill: that one is 18% of the *foreground*,
+                // which at the size of a three-letter chip is a difference you
+                // have to go looking for.
+                background: calRow.inBar ? Util.alpha(Color.accent, 0.22) : "transparent"
+                foreground: calRow.inBar ? root.panel.ink : root.panel.faint
+                accent: Color.accent
+                fontFamily: root.panel.mono
+                fontSize: Style.font.caption
+                horizontalPadding: Style.space(8)
+                verticalPadding: Style.space(3)
+                onClicked: root.panel.toggleBarCalendar(calRow.modelData)
+
+                Behavior on opacity { NumberAnimation { duration: 140 } }
               }
 
               ToggleSwitch {
@@ -432,6 +475,11 @@ Flickable {
               options: [{ value: 0, label: "Midnight" }, { value: 6, label: "06:00" },
                         { value: 7, label: "07:00" }, { value: 8, label: "08:00" },
                         { value: 9, label: "09:00" }] },
+            { key: "hourHeight", label: "Hour height",
+              options: [{ value: 46, label: "Compact" },
+                        { value: 64, label: "Comfortable — 15 min readable" },
+                        { value: 88, label: "Roomy" },
+                        { value: 112, label: "Tall" }] },
             { key: "refreshMinutes", label: "Refresh every",
               options: [{ value: 1, label: "1 minute" }, { value: 5, label: "5 minutes" },
                         { value: 15, label: "15 minutes" }, { value: 30, label: "30 minutes" }] },

@@ -60,6 +60,8 @@ Panel {
   function setConfig(key, value) { if (store) store.setConfig(key, value) }
   function calendarEnabled(cal) { return store ? store.calendarEnabled(cal) : true }
   function toggleCalendar(cal) { if (store) store.toggleCalendar(cal) }
+  function calendarInBar(cal) { return store ? store.calendarInBar(cal) : true }
+  function toggleBarCalendar(cal) { if (store) store.toggleBarCalendar(cal) }
   function login() { if (store) store.login() }
   function installDeps() { if (store) store.installDeps() }
 
@@ -91,6 +93,10 @@ Panel {
   readonly property int weekStart: cfg.weekStart === undefined ? 1 : cfg.weekStart
   readonly property int notifyMinutes: cfg.notifyMinutes === undefined ? 10 : cfg.notifyMinutes
   readonly property int dayStartHour: cfg.dayStartHour === undefined ? 7 : cfg.dayStartHour
+  // Pixels per hour on the grid, before the theme's spacing scale. At the old
+  // 46 a quarter-hour block was 11px and its title was a sliver of ink; the
+  // grid is worth less than the events on it, so the hour gives way.
+  readonly property int hourHeight: cfg.hourHeight === undefined ? 64 : cfg.hourHeight
   readonly property int refreshMinutes: Math.max(1, cfg.refreshMinutes || 5)
   readonly property bool hours12: cfg.hours12 === true
   // "auto" (default) keeps the density trade-off: a chip shows its start time
@@ -98,7 +104,12 @@ Panel {
   // hover, and the bar label switches from "in 5m" to the clock time.
   readonly property string eventTimes: cfg.eventTimes || "auto"
   readonly property bool connected: accounts.length > 0
-  readonly property var nextEvent: Model.nextEvent(events, now)
+
+  // The bar names one event; these are the calendars it may pick from. The
+  // grid still shows every enabled calendar — hiding a calendar from the bar
+  // is about interruption, not about what is on your week.
+  readonly property var barCalendars: store ? store.barCalendars : ({})
+  readonly property var nextEvent: Model.nextEvent(events, now, barCalendars)
 
   // ------------------------------------------------------------- palette
   //

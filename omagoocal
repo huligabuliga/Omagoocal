@@ -75,11 +75,17 @@ CACHE_TTL = 3600                                 # calendars change rarely
 
 DEFAULTS = {
     "calendars": {},        # "email\tcalendarId" -> bool (absent = enabled)
+    # Which calendars the bar label is allowed to name, keyed the same way.
+    # A second map rather than a tri-state on the first one: what belongs on
+    # the grid and what is worth interrupting a glance at the bar are two
+    # different questions, and a shared PTO calendar answers them differently.
+    "barCalendars": {},     # "email\tcalendarId" -> bool (absent = shown)
     "notifyMinutes": 10,
     "defaultView": "week",
     "weekStart": 1,         # 0 Sunday, 1 Monday
     "hours12": False,
     "dayStartHour": 7,
+    "hourHeight": 64,       # px per hour on the grid, before the theme scale
     "refreshMinutes": 5,
     "snapshot": True,       # keep the last sync on disk so opens are instant
     # "auto": show a chip's start time only when the chip is big enough for
@@ -95,6 +101,10 @@ CONFIG_RANGES = {
     "notifyMinutes": (0, 1440),
     "weekStart": (0, 6),
     "dayStartHour": (0, 23),
+    # 40px is about where a quarter-hour block stops holding a line of text;
+    # the ceiling is only there to keep a hand-edited file from producing a
+    # grid the panel cannot scroll to the end of.
+    "hourHeight": (40, 240),
     "refreshMinutes": (1, 1440),
 }
 CONFIG_ENUMS = {"defaultView": ("day", "week", "month"), "eventTimes": ("auto", "always")}

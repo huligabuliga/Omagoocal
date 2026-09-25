@@ -413,9 +413,31 @@ function isWebLink(url) {
   return /^https:\/\/\S+$/i.test(String(url || ""))
 }
 
-function nextEvent(events, now) {
+// ------------------------------------------------------- bar visibility
+//
+// The key a per-calendar preference is stored under. Account as well as id,
+// because the same shared calendar can be subscribed from two accounts and
+// they are separately switchable.
+function calendarKey(account, id) { return account + "\t" + id }
+
+// Whether the bar label may name this event.
+//
+// `map` is the config's `barCalendars`: key -> bool, and *absent means
+// shown*. A calendar that appears after the setting was last touched must
+// not be silently muted — the failure mode of the other polarity is a
+// meeting you never see.
+function shownInBar(ev, map) {
+  if (!map) return true
+  return map[calendarKey(ev.account, ev.calendarId)] !== false
+}
+
+// The soonest event the bar is allowed to name. All-day events are skipped
+// whatever their calendar: the bar answers "how long have I got", and a
+// banner has no answer to give.
+function nextEvent(events, now, barCalendars) {
   for (var i = 0; i < events.length; i++) {
     if (events[i].allDay) continue
+    if (!shownInBar(events[i], barCalendars)) continue
     if (events[i].endAt > now) return events[i]
   }
   return null
