@@ -1,0 +1,20 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Model self-check
+        run: node test_model.js
+      - name: Backend self-check (no network, no D-Bus, empty PATH)
+        run: PATH= /usr/bin/python3 test_backend.py
+      - name: Manifest is valid JSON
+        run: python3 -c "import json; json.load(open('manifest.json'))"
