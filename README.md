@@ -185,8 +185,10 @@ omarchy-shell omagoocal refresh
 
 Reachable from the gear, or `,`. Connected accounts (add and remove), which
 calendars to show, which of those the bar may name, notification lead time,
-opening view, week start, 12/24 hour clock, the hour the grid opens on, how
-tall an hour is, and refresh interval.
+opening view, week start, 12/24 hour clock, whether event times are always
+shown, an optional strip of calendar chips under the header (click one to
+hide that calendar without opening settings), the hour the grid opens on,
+how tall an hour is, and refresh interval.
 
 ### Keeping a calendar out of the bar
 

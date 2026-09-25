@@ -103,6 +103,9 @@ Panel {
   // only when it has room. "always" shows it regardless, so a glance needs no
   // hover, and the bar label switches from "in 5m" to the clock time.
   readonly property string eventTimes: cfg.eventTimes || "auto"
+  // The calendar chip strip under the header. Opt-in: it spends two rows of
+  // every view on a control the settings page already has.
+  readonly property bool calendarChips: cfg.calendarChips === true
   readonly property bool connected: accounts.length > 0
 
   // The bar names one event; these are the calendars it may pick from. The

@@ -399,6 +399,9 @@ c = gcal._coerce_config({"weekStart": 0, "calendars": {"a\tb": False, "c": "no"}
 assert c["weekStart"] == 0 and c["calendars"] == {"a\tb": False} and c["snapshot"] is False
 assert gcal._coerce_config({"eventTimes": "always"})["eventTimes"] == "always"
 assert gcal._coerce_config({"eventTimes": "sometimes"})["eventTimes"] == "auto"
+assert gcal._coerce_config({})["calendarChips"] is False, "chips are opt-in"
+assert gcal._coerce_config({"calendarChips": "yes"})["calendarChips"] is False
+assert gcal._coerce_config({"calendarChips": True})["calendarChips"] is True
 
 # -- the bar filter is a second map of the same shape, and independent of the
 #    first: muting a calendar in the bar must not switch it off on the grid

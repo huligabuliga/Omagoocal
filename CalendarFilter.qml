@@ -14,7 +14,8 @@ Item {
   property var panel: null
 
   readonly property var calendars: panel ? panel.calendars : []
-  readonly property bool show: panel && panel.connected && panel.view !== "settings"
+  readonly property bool show: panel && panel.calendarChips && panel.connected
+    && panel.view !== "settings"
     && root.calendars.length > 0
 
   visible: show
@@ -44,9 +45,14 @@ Item {
         bordered: true
         selected: on
         accent: modelData.color || Color.accent
-        // Hidden calendars recede rather than vanish: the chip is how you get
-        // them back, so it has to stay where the eye last saw it.
-        foreground: on ? root.panel.ink : root.panel.faint
+        // A chip wears its calendar's colour, made legible against the panel
+        // (a yellow calendar on a light theme would otherwise vanish). Hidden
+        // calendars recede rather than vanish: the chip is how you get them
+        // back, so it has to stay where the eye last saw it.
+        foreground: on
+          ? Model.legible(String(modelData.color || root.panel.ink),
+                          String(Color.popups.background), String(root.panel.ink))
+          : root.panel.faint
         opacity: on ? 1.0 : 0.65
         fontFamily: root.panel.mono
         fontSize: Style.font.caption
