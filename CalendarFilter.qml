@@ -43,7 +43,8 @@ Item {
         tooltipText: (on ? "Hide " : "Show ") + modelData.name
           + (modelData.account ? " · " + modelData.account : "")
         bordered: true
-        selected: on
+        // Not `selected`: the kit paints a selected button's text in its own
+        // state colour, which would erase the calendar colour below.
         accent: modelData.color || Color.accent
         // A chip wears its calendar's colour, made legible against the panel
         // (a yellow calendar on a light theme would otherwise vanish). Hidden
