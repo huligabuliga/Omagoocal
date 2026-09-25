@@ -32,9 +32,12 @@ Rectangle {
   // be dropped for space — on short or narrow chips, and inline on a one-line
   // month cell. The default "auto" keeps the density trade-off.
   readonly property bool clockAlways: (panel.eventTimes || "auto") === "always"
-  readonly property bool showClock: !root.compact
+  // An all-day event has no clock to show: "Always" must not stamp "00:00"
+  // on every banner and month-cell holiday.
+  readonly property bool timed: event ? event.allDay !== true : false
+  readonly property bool showClock: !root.compact && root.timed
     && (root.clockAlways || (root.height > Style.space(28) && root.width > Style.space(92)))
-  readonly property bool inlineClock: root.compact && root.clockAlways
+  readonly property bool inlineClock: root.compact && root.clockAlways && root.timed
   // The call on this event, evaluated once when the event changes and
   // shared by the marker and the tooltip. A meeting you can join is worth
   // knowing about without opening the event to find out.
