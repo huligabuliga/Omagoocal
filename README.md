@@ -1,8 +1,8 @@
 # Omagoocal — Google Calendar for Omarchy
 
 Your Google Calendar in the Omarchy bar: day, week and month views, multiple
-accounts, event creation and editing, colour straight from Google, and a
-notification before events start. Opens instantly — the last sync is painted
+accounts, event creation and editing, colour straight from Google, one-click
+joining for events that have a call, and a notification before events start. Opens instantly — the last sync is painted
 from disk before the first network request is made.
 
 ![week view](preview.png)
@@ -75,8 +75,9 @@ by absolute path. Every API response is capped at 8 MiB, every paginated
 listing at 20 pages / 5000 items, one sync at 10 000 events and 500
 calendars, and the backend's total output at 16 MiB. Remote strings are cut
 to Google's own field limits (title and location 1024, description 8192)
-and every field is coerced to the type the panel expects. Those totals are enforced
-by one shared budget while the calendars are being fetched in parallel —
+and every field is coerced to the type the panel expects; a call's entry
+points are capped at 8 per event and stripped of control characters before
+the panel ever sees a URI. Those totals are enforced by one shared budget while the calendars are being fetched in parallel —
 bytes charged before a page is decoded, items as each page lands — and the
 first exhaustion cancels everything still queued, so the ceiling holds
 during the work rather than after it has all been held in memory. Output
@@ -119,11 +120,55 @@ packages only for this plugin, uninstall `gnome-online-accounts-gtk` and
 | Grid click | New event at that time, rounded to the half hour |
 | Event click | Edit |
 | Event middle click | Open in Google Calendar |
+| 󰕧 on a chip | The event has a call. Open it for the link. |
 | `+N more` | Too many events to show side by side — opens the day view |
 
 Keys while the panel is open: `D` `W` `M` switch view, `T` today, `N` new
 event, `R` refresh, `,` settings, `[` `]` step, arrows step, `Esc` close.
 In the editor, `Ctrl+Enter` saves and `Esc` cancels.
+
+### Joining the call
+
+An event booked through anything that integrates with Google Calendar —
+Meet, Zoom, Teams, Webex — carries the call with it, and so does one where
+somebody pasted the link into the description by hand. Either way the event
+card grows a **CALL** box with **JOIN** in it. A chip on the grid takes a
+󰕧 when there is one, so you can see which of the morning's meetings you
+have to be somewhere for.
+
+One row, not six. An invitation's boilerplate is full of links — a Teams
+block alone carries the join link, a dial-in lookup, a help page and the
+organiser's meeting options — so the box shows the join link and nothing
+else: the first video entry point the provider declared, which is the one
+thing every provider fills in the same way. What Google sent beats anything
+found in the prose. An event with only a dial-in number shows that instead,
+with **COPY** in place of JOIN and the PIN it is useless without already
+beside the number.
+
+Only `https://` is ever handed to `xdg-open`, and only a link on a known
+meeting host is ever considered — an unrecognised link stays in the notes
+where it was written, because a box labelled CALL that offers you a
+spreadsheet is worse than no box. The link is read, never rewritten: the
+box is not editable, and saving an event never sends a description you did
+not change.
+
+The card is the editor, and the editor refuses read-only calendars, so a
+call on a calendar you cannot write to is reached with middle click, which
+opens the event in Google Calendar.
+
+### Notes
+
+The description was a single-line field. A single-line field scrolls to its
+cursor, so what it showed of a long note was the *end* of it — the last
+words of an invitation's footer, never the first words of what the meeting
+is. It now shows the beginning, cut off at the right edge, and **EXPAND**
+(or clicking the line) opens the whole thing as a proper multi-line editor.
+The label says how many lines are folded away rather than only that
+something is.
+
+A note you never expanded is never sent back: only fields you actually
+changed travel to Google, so saving a new end time cannot flatten a
+description you did not touch.
 
 IPC, for keybindings:
 

@@ -229,8 +229,8 @@ Panel {
       end: ev.allDay ? Model.exclusiveEndDate(ev.endAt) : Model.rfc3339(ev.endAt)
     }
     // Only fields the editor actually changed travel: PATCH leaves the rest
-    // alone, which is what keeps a description the single-line field could
-    // not show from being flattened on every save.
+    // alone, so a description nobody touched is never rewritten by the act
+    // of saving a new end time.
     if ("location" in ev) payload.location = ev.location
     if ("description" in ev) payload.description = ev.description
     if ("colorId" in ev) payload.colorId = ev.colorId

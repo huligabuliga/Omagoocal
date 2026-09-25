@@ -413,6 +413,203 @@ function isWebLink(url) {
   return /^https:\/\/\S+$/i.test(String(url || ""))
 }
 
+// ----------------------------------------------------------- meetings
+//
+// A call earns its own box only when it is a call. Google fills
+// `conferenceData` for anything booked through a provider that integrates
+// with Calendar — Meet, Zoom, Teams, Webex — but plenty of invitations are
+// a link somebody pasted into the description by hand, and that is exactly
+// where people look for it. Both are read.
+//
+// What is *not* read is every other link in the notes. This is a list of
+// hosts, not a heuristic: a box labelled CALL that offers you a spreadsheet
+// is worse than no box, so an unrecognised link stays in the notes where it
+// was written.
+var MEETING_HOSTS = [
+  { name: "Google Meet",   re: /^meet\.google\.com\// },
+  { name: "Zoom",          re: /(^|\.)zoom\.us\/|(^|\.)zoomgov\.com\// },
+  { name: "Microsoft Teams", re: /^teams\.(microsoft\.com|live\.com|microsoft\.us)\// },
+  { name: "Webex",         re: /(^|\.)webex\.com\// },
+  { name: "Jitsi Meet",    re: /^meet\.jit\.si\/|^8x8\.vc\// },
+  { name: "Whereby",       re: /(^|\.)whereby\.com\// },
+  { name: "GoTo Meeting",  re: /(^|\.)gotomeeting\.com\/|^gotomeet\.me\// },
+  { name: "BlueJeans",     re: /(^|\.)bluejeans\.com\// },
+  { name: "Amazon Chime",  re: /(^|\.)chime\.aws\// },
+  { name: "Slack huddle",  re: /(^|\.)slack\.com\/huddle\// },
+  { name: "Discord",       re: /^discord\.gg\/|(^|\.)discord\.com\/(channels|events)\// },
+  { name: "Skype",         re: /^join\.skype\.com\// },
+  { name: "Around",        re: /(^|\.)around\.co\// }
+]
+
+// Host and path of an https URL, or null. Hand-rolled because the engine
+// behind QML has no URL parser, and because the parts that matter for a
+// trust decision are worth being explicit about: userinfo is stripped, so
+// `https://meet.google.com@example.com/x` is read as example.com — which is
+// what it is — rather than as Meet.
+function linkParts(url) {
+  var m = /^https:\/\/([^\/?#\s]+)([^\s?#]*)/i.exec(String(url || ""))
+  if (!m) return null
+  var host = m[1].toLowerCase()
+  var at = host.lastIndexOf("@")
+  if (at >= 0) host = host.slice(at + 1)
+  var colon = host.lastIndexOf(":")
+  if (colon >= 0 && host.indexOf("]") < colon) host = host.slice(0, colon)
+  if (!host) return null
+  return { host: host, path: m[2] || "/" }
+}
+
+// The provider a link belongs to, or "" for anything not on the list above.
+function meetingProvider(url) {
+  var parts = linkParts(url)
+  if (!parts) return ""
+  var probe = parts.host + parts.path
+  for (var i = 0; i < MEETING_HOSTS.length; i++)
+    if (MEETING_HOSTS[i].re.test(probe)) return MEETING_HOSTS[i].name
+  return ""
+}
+
+// Every https URL in a block of prose.
+//
+// Trailing punctuation belongs to the sentence, not to the address: "we are
+// on https://meet.google.com/abc-defg-hij." must not carry the full stop
+// into xdg-open.
+function scrapeLinks(text) {
+  var out = []
+  var re = /https:\/\/[^\s<>"'`\\]+/gi
+  var m
+  while ((m = re.exec(String(text || "")))) {
+    var url = m[0].replace(/[.,;:!?)\]}>'"]+$/, "")
+    if (url.length > 8) out.push(url)
+  }
+  return out
+}
+
+// Two URLs that differ only in a trailing slash or in case of the scheme are
+// the same call, and a Meet event says its link twice — once in
+// `hangoutLink`, once as an entry point — so identity is what dedupes.
+function meetingKey(uri) {
+  return String(uri || "").replace(/\/+$/, "").toLowerCase()
+}
+
+// The calls attached to an event, in the order the panel offers them:
+// everything you can click, then the numbers you dial.
+function meetingLinks(ev) {
+  var conf = (ev && ev.conference) ? ev.conference : {}
+  var entries = conf.entries || []
+  var seen = {}
+  var clickable = [], dial = []
+
+  // One name for the whole call. A dial-in has no host to be judged on, so
+  // it borrows the video link's: "Zoom" on one row and "Zoom Meeting" on the
+  // next is one fact told two ways. Google's own name is the last resort,
+  // because it is whatever the integration chose to call itself.
+  var house = ""
+  for (var h = 0; h < entries.length && !house; h++)
+    house = meetingProvider((entries[h] || {}).uri)
+  var fallback = house || String(conf.name || "")
+
+  function add(uri, kind, label, code, pin) {
+    var key = meetingKey(uri)
+    if (!key || seen[key]) return
+    seen[key] = true
+    var item = {
+      uri: String(uri),
+      kind: String(kind || "video"),
+      label: String(label || ""),
+      code: String(code || ""),
+      pin: String(pin || ""),
+      // The host is the lead, because it is the harder fact.
+      provider: meetingProvider(uri) || fallback,
+      // Only https is ever handed to xdg-open. tel: and sip: are shown.
+      openable: isWebLink(uri)
+    }
+    ;(item.kind === "phone" || item.kind === "sip" ? dial : clickable).push(item)
+  }
+
+  for (var i = 0; i < entries.length; i++) {
+    var e = entries[i] || {}
+    add(e.uri, e.kind, e.label, e.code, e.pin)
+  }
+
+  // Then the ones written by hand, in the two fields people write them in.
+  var loose = scrapeLinks(ev && ev.location).concat(scrapeLinks(ev && ev.description))
+  for (var j = 0; j < loose.length; j++)
+    if (meetingProvider(loose[j])) add(loose[j], "video", "", "", "")
+
+  return clickable.concat(dial)
+}
+
+// The one way in the panel offers.
+//
+// An invitation's boilerplate is full of links. A Teams block alone carries
+// the join link, a dial-in lookup, a help page and the organiser's meeting
+// options, all on hosts this file recognises — and a box with six rows in
+// it is not an answer to "where do I click".
+//
+// The answer is the join link: the first video entry point the provider
+// declared, which is the one thing every provider fills in the same way.
+// What Google sent beats anything scraped out of prose, because
+// `meetingLinks` puts the entry points first, and a dial-in is only ever
+// offered when there is nothing to click at all.
+function primaryMeeting(ev) {
+  var all = meetingLinks(ev)
+  for (var i = 0; i < all.length; i++)
+    if (all[i].kind === "video" && all[i].openable) return all[i]
+  return all.length ? all[0] : null
+}
+
+// What a call row is headed with. The provider if one is known, and
+// otherwise the plainest true thing: the host you would be dialling into.
+function meetingName(m) {
+  if (!m) return ""
+  if (m.provider) return m.provider
+  if (m.kind === "phone") return "Dial in"
+  if (m.kind === "sip") return "SIP"
+  var parts = linkParts(m.uri)
+  return parts ? parts.host : "Link"
+}
+
+// The line under it. A link loses its scheme, which is the same for all of
+// them and costs eight characters of a row that elides; a dial-in keeps its
+// pin, which it is useless without.
+function meetingDetail(m) {
+  if (!m) return ""
+  if (m.kind === "phone" || m.kind === "sip") {
+    var number = m.label || String(m.uri || "").replace(/^[a-z]+:/i, "")
+    return m.pin ? number + "  ·  PIN " + m.pin : number
+  }
+  return String(m.uri || "").replace(/^https:\/\//i, "")
+}
+
+// What COPY puts on the clipboard: the thing you would paste into a dialler
+// or a browser, rather than the scheme a dialler would choke on.
+function meetingCopyText(m) {
+  if (!m) return ""
+  if (m.kind === "phone" || m.kind === "sip")
+    return String(m.uri || "").replace(/^[a-z]+:/i, "")
+  return String(m.uri || "")
+}
+
+// ------------------------------------------------------------ notes
+//
+// The one line the collapsed notes show.
+//
+// Notes arrive as a block: an invitation, a link, and a wall of boilerplate
+// under it. The first words are the ones that say what this is, so that is
+// where the preview starts — whitespace collapsed, so a leading blank line
+// cannot spend the whole line on nothing.
+function notesPreview(text, limit) {
+  var flat = String(text || "").replace(/\s+/g, " ").replace(/^ +| +$/g, "")
+  var cap = limit || 160
+  return flat.length > cap ? flat.slice(0, cap - 1) + "…" : flat
+}
+
+// How much is being hidden, for the label on the control that reveals it.
+function notesLineCount(text) {
+  var body = String(text || "").replace(/^\s+|\s+$/g, "")
+  return body === "" ? 0 : body.split(/\r\n|\r|\n/).length
+}
+
 // ------------------------------------------------------- bar visibility
 //
 // The key a per-calendar preference is stored under. Account as well as id,

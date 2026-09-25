@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import Quickshell
 import qs.Commons
 import qs.Ui
@@ -27,6 +28,28 @@ Item {
   readonly property var writableCalendars: panel.calendars.filter(function(c) {
     return c.writable && c.enabled
   })
+
+  // The one way into this event's call. An invitation's boilerplate carries
+  // half a dozen links on hosts worth recognising; the join link is the one
+  // worth a box.
+  readonly property var meeting: draft ? Model.primaryMeeting(draft) : null
+
+  // The notes open closed. A card that opens at the height of somebody's
+  // invitation boilerplate is a card you scroll past to reach Save.
+  property bool notesExpanded: false
+
+  function expandNotes() {
+    notesExpanded = true
+    notesArea.forceActiveFocus()
+    // At the top, which is where the note starts and where the collapsed
+    // line left off.
+    notesArea.cursorPosition = 0
+  }
+
+  // The same rule the chips follow: only a web link is ever handed out.
+  function openLink(url) {
+    if (Model.isWebLink(url)) Quickshell.execDetached(["/usr/bin/xdg-open", url])
+  }
 
   readonly property var parsedStart: {
     var day = Model.parseDayInput(startDayField.text)
@@ -66,10 +89,12 @@ Item {
       startAt: parsedStart,
       endAt: parsedEnd
     }
-    // Send only what changed. The notes field is one line; a description
-    // with paragraphs that was never touched must reach Google untouched.
+    // Send only what changed. An untouched description must reach Google
+    // byte for byte — the editor round-trips one now, but a note it never
+    // loaded, or one Google stores rich text for, is still not ours to
+    // rewrite by sending it back.
     if (locationField.text.trim() !== String(draft.location || "")) out.location = locationField.text.trim()
-    if (notesField.text !== String(draft.description || "")) out.description = notesField.text
+    if (notesArea.text !== String(draft.description || "")) out.description = notesArea.text
     if (colorId !== String(draft.colorId || "")) out.colorId = colorId
     panel.saveEvent(out)
   }
@@ -288,6 +313,116 @@ Item {
           }
         }
 
+        // ---- The call, when there is one.
+        //
+        //      Read-only: the link is Google's, or somebody's paste into the
+        //      description, and neither is this card's to rewrite. What it
+        //      is here for is the one click that gets you into the meeting —
+        //      which used to mean opening the event on the web to find it.
+        Column {
+          id: callBox
+          width: parent.width
+          visible: root.meeting !== null
+          spacing: Style.space(6)
+
+          PanelSeparator { width: parent.width; foreground: root.panel.ink }
+
+          Text {
+            text: "CALL"
+            color: root.panel.faint
+            font.family: root.panel.mono
+            font.pixelSize: Style.font.caption
+            font.letterSpacing: 1.4
+          }
+
+          Rectangle {
+            width: parent.width
+            height: Math.max(Style.space(40), rowText.implicitHeight + Style.space(14))
+            radius: Style.cornerRadius > 0 ? Style.space(3) : 0
+            color: Util.alpha(root.panel.ink, 0.06)
+            border.width: 1
+            border.color: Util.alpha(root.panel.ink, 0.14)
+
+            Text {
+              id: rowGlyph
+              anchors.left: parent.left
+              anchors.leftMargin: Style.space(9)
+              anchors.verticalCenter: parent.verticalCenter
+              text: !root.meeting ? ""
+                  : root.meeting.kind === "phone" ? "󰏲"
+                  : root.meeting.kind === "video" ? "󰕧" : "󰌷"
+              color: Color.accent
+              font.family: root.panel.mono
+              font.pixelSize: Style.font.icon
+            }
+
+            Column {
+              id: rowText
+              anchors.left: rowGlyph.right
+              anchors.leftMargin: Style.space(8)
+              anchors.right: rowAction.left
+              anchors.rightMargin: Style.space(8)
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: 0
+
+              Text {
+                width: parent.width
+                text: Model.meetingName(root.meeting)
+                textFormat: Text.PlainText
+                color: root.panel.ink
+                font.family: root.panel.mono
+                font.pixelSize: Style.font.bodySmall
+                elide: Text.ElideRight
+              }
+
+              // Somebody else's URL, drawn as text and never as markup.
+              Text {
+                width: parent.width
+                text: Model.meetingDetail(root.meeting)
+                textFormat: Text.PlainText
+                color: root.panel.dim
+                font.family: root.panel.mono
+                font.pixelSize: Style.font.caption
+                elide: Text.ElideRight
+              }
+            }
+
+            // A number cannot be joined, so it is offered as something to
+            // paste into whatever you dial with instead.
+            Button {
+              id: rowAction
+              property bool copied: false
+              readonly property bool joinable: root.meeting !== null && root.meeting.openable
+
+              anchors.right: parent.right
+              anchors.rightMargin: Style.space(6)
+              anchors.verticalCenter: parent.verticalCenter
+              text: joinable ? "JOIN" : (copied ? "COPIED" : "COPY")
+              tooltipText: root.meeting ? root.meeting.uri : ""
+              foreground: joinable ? Color.accent : root.panel.dim
+              accent: Color.accent
+              fontFamily: root.panel.mono
+              fontSize: Style.font.caption
+              bordered: true
+              onClicked: {
+                if (!root.meeting) return
+                if (joinable) root.openLink(root.meeting.uri)
+                else {
+                  Quickshell.clipboardText = Model.meetingCopyText(root.meeting)
+                  copied = true
+                  revert.restart()
+                }
+              }
+
+              Timer {
+                id: revert
+                interval: 1400
+                onTriggered: rowAction.copied = false
+              }
+            }
+          }
+        }
+
         PanelSeparator { width: parent.width; foreground: root.panel.ink }
 
         // ---- Which calendar. Multi-account lives here: the list is every
@@ -390,12 +525,136 @@ Item {
           foreground: root.panel.ink
         }
 
-        TextField {
-          id: notesField
+        // ---- Notes. One line until you ask for the rest.
+        //
+        //      A description is a block of text and this was a single-line
+        //      input. A single-line input scrolls to its cursor, so what it
+        //      showed of a long note was the *end* of it — the last words of
+        //      an invitation's footer, never the first words of what the
+        //      meeting is. Collapsed it is now a label that starts where the
+        //      note starts; expanded it is the whole thing, still editable.
+        Column {
           width: parent.width
-          text: root.draft ? root.draft.description : ""
-          placeholderText: "Notes"
-          foreground: root.panel.ink
+          spacing: Style.space(3)
+
+          Item {
+            width: parent.width
+            height: notesLabel.implicitHeight
+
+            Text {
+              id: notesLabel
+              anchors.left: parent.left
+              text: "NOTES"
+              color: root.panel.faint
+              font.family: root.panel.mono
+              font.pixelSize: Style.font.caption
+              font.letterSpacing: 1.4
+            }
+
+            // Says how much is being kept back, not just that something is.
+            Text {
+              anchors.right: parent.right
+              anchors.verticalCenter: notesLabel.verticalCenter
+              readonly property int lines: Model.notesLineCount(notesArea.text)
+              text: root.notesExpanded
+                ? "COLLAPSE 󰅃"
+                : (lines > 1 ? lines + " LINES 󰅀" : "EXPAND 󰅀")
+              color: notesToggle.containsMouse ? Color.accent : root.panel.faint
+              font.family: root.panel.mono
+              font.pixelSize: Style.font.caption
+              font.letterSpacing: 1.0
+
+              MouseArea {
+                id: notesToggle
+                anchors.fill: parent
+                anchors.margins: -Style.space(4)
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  if (root.notesExpanded) root.notesExpanded = false
+                  else root.expandNotes()
+                }
+              }
+            }
+          }
+
+          // Collapsed: the first words, cut at the right edge rather than
+          // scrolled past.
+          BorderSurface {
+            visible: !root.notesExpanded
+            width: parent.width
+            height: Style.space(30)
+            radius: Style.cornerRadius
+            color: Style.controlFill(false, notesPreview.containsMouse, root.panel.ink, Color.accent)
+            borderSpec: Border.controlSpec(notesPreview.containsMouse ? "hover-cursor" : "normal",
+                                           root.panel.ink, Color.accent)
+
+            Text {
+              anchors.fill: parent
+              anchors.leftMargin: Style.spacing.controlPaddingX
+              anchors.rightMargin: Style.spacing.controlPaddingX
+              verticalAlignment: Text.AlignVCenter
+              text: Model.notesPreview(notesArea.text) || "Notes"
+              textFormat: Text.PlainText
+              color: notesArea.text === "" ? Qt.darker(root.panel.ink, 1.6) : root.panel.ink
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body
+              elide: Text.ElideRight
+            }
+
+            MouseArea {
+              id: notesPreview
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.IBeamCursor
+              onClicked: root.expandNotes()
+            }
+          }
+
+          // Expanded: the whole note. It stays loaded while collapsed, so a
+          // paragraph typed and then folded away is still there to save.
+          BorderSurface {
+            visible: root.notesExpanded
+            width: parent.width
+            height: Style.space(150)
+            radius: Style.cornerRadius
+            color: Style.controlFill(notesArea.activeFocus, notesArea.hovered,
+                                     root.panel.ink, Color.accent)
+            borderSpec: Border.controlSpec(notesArea.activeFocus ? "focus"
+                                             : (notesArea.hovered ? "hover-cursor" : "normal"),
+                                           root.panel.ink, Color.accent)
+
+            Flickable {
+              anchors.fill: parent
+              anchors.margins: Style.space(2)
+              clip: true
+              boundsBehavior: Flickable.StopAtBounds
+
+              TextArea.flickable: TextArea {
+                id: notesArea
+                text: root.draft ? root.draft.description : ""
+                placeholderText: "Notes"
+                wrapMode: TextEdit.Wrap
+                // Somebody else's text in an editable field is still
+                // somebody else's text: never parsed as markup.
+                textFormat: TextEdit.PlainText
+                color: root.panel.ink
+                placeholderTextColor: Qt.darker(root.panel.ink, 1.6)
+                selectionColor: Style.selectionFillFor(root.panel.ink, Color.accent)
+                selectedTextColor: root.panel.ink
+                font.family: Style.font.family
+                font.pixelSize: Style.font.body
+                leftPadding: Style.spacing.controlPaddingX
+                rightPadding: Style.spacing.controlPaddingX
+                topPadding: Style.spacing.inputPaddingY
+                bottomPadding: Style.spacing.inputPaddingY
+                background: null
+                Keys.onEscapePressed: root.panel.editing = null
+              }
+
+              ScrollBar.vertical: ScrollBar { }
+            }
+          }
         }
 
         Text {

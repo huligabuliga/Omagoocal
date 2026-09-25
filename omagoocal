@@ -62,6 +62,7 @@ MAX_DESCRIPTION = 8192
 MAX_SHORT = 512                         # ids, names, colours, links, emails
 RETRY_STATUSES = (429, 500, 502, 503)   # one bounded retry, then the error stands
 RETRY_DELAY = 1.5
+MAX_CONFERENCE_ENTRIES = 8              # dial-ins per event; Google sends 1-3
 MAX_TOTAL_EVENTS = 10000                # across every calendar in one sync
 MAX_TOTAL_CALENDARS = 500               # across every account
 MAX_SYNC_BYTES = 16 * 1024 * 1024       # raw response bytes across one whole sync
@@ -614,6 +615,59 @@ def _gather(pool, jobs, budget):
     return results
 
 
+# The entry kinds Google defines. Anything else it invents later is dropped
+# rather than drawn: the panel gives each kind its own affordance, and there
+# is no right one for a kind it has never heard of.
+CONFERENCE_KINDS = ("video", "phone", "sip", "more")
+
+
+def _conference(ev):
+    """The call attached to an event, flattened to what the panel draws.
+
+    Google says it two ways. `hangoutLink` is the Meet URL and nothing else;
+    `conferenceData.entryPoints` is the general form every provider that
+    integrates with Calendar fills in — Zoom, Teams and Webex included. Both
+    are read, the URI is the identity, and the first mention of one wins, so
+    a Meet event never lists its single link twice.
+
+    URIs keep their scheme. `tel:` and `sip:` are shown and never opened:
+    only `https://` is ever handed to xdg-open, and that rule lives in the
+    panel, where the click is.
+    """
+    data = ev.get("conferenceData")
+    data = data if isinstance(data, dict) else {}
+    solution = data.get("conferenceSolution")
+    name = _text(solution.get("name"), MAX_SHORT) if isinstance(solution, dict) else ""
+
+    points = data.get("entryPoints")
+    points = points if isinstance(points, list) else []
+    hangout = _text(ev.get("hangoutLink"), MAX_SHORT)
+    if hangout:
+        points = [{"entryPointType": "video", "uri": hangout}] + points
+
+    out, seen = [], set()
+    for point in points:
+        if not isinstance(point, dict):
+            continue
+        uri = _CONTROL.sub("", _text(point.get("uri"), MAX_SHORT))
+        kind = _text(point.get("entryPointType"), MAX_SHORT)
+        if not uri or kind not in CONFERENCE_KINDS or uri in seen:
+            continue
+        seen.add(uri)
+        out.append({
+            "kind": kind,
+            "uri": uri,
+            "label": _CONTROL.sub("", _text(point.get("label"), MAX_SHORT)),
+            "code": _CONTROL.sub("", _text(point.get("meetingCode"), MAX_SHORT)),
+            # What a phone entry point is worthless without.
+            "pin": _CONTROL.sub("", _text(point.get("pin"), MAX_SHORT)),
+        })
+        if len(out) == MAX_CONFERENCE_ENTRIES:
+            break
+
+    return {"name": name, "entries": out} if out else {}
+
+
 def events(time_min, time_max, calendars=None, fresh=False):
     active = [c for c in (calendar_list(fresh) if calendars is None else calendars)
               if not c.get("error") and c["enabled"]]
@@ -664,6 +718,7 @@ def events(time_min, time_max, calendars=None, fresh=False):
                 "location": _text(ev.get("location"), MAX_LOCATION),
                 "description": _text(ev.get("description"), MAX_DESCRIPTION),
                 "link": _text(ev.get("htmlLink"), MAX_SHORT),
+                "conference": _conference(ev),
                 "writable": cal["writable"],
                 "recurring": isinstance(ev.get("recurringEventId"), str),
             })
@@ -682,8 +737,8 @@ def _require(args, *keys):
 def _body(args):
     """The event document to send. PATCH leaves absent fields alone, so a
     field is included only when the caller sent it — and then exactly as
-    sent, empty meaning cleared. That is what keeps a multi-line description
-    the editor never showed from being flattened on every save."""
+    sent, empty meaning cleared. That is what keeps a description nobody
+    edited from being rewritten by the act of saving a new end time."""
     _require(args, "start", "end")
     payload = {"summary": _text(args.get("title"), MAX_TITLE) or "(no title)"}
     kind = "date" if args.get("allDay") is True else "dateTime"

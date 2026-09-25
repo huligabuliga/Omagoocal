@@ -270,5 +270,150 @@ eq(M.legible('#ffff00', '#000000', '#ffffff'), '#ffff00', 'yellow is left alone 
 eq(M.legible('#0046f5', '#ffffff', '#000000'), '#0046f5', 'a legible colour is untouched')
 ok(M.contrast(M.legible('#222222', '#000000', '#ffffff'), '#000000') >= 2.2,
   'a dark colour is lifted on a dark bar')
+// ----------------------------------------------------------------- meetings
+
+// the host is what a link is judged on, and userinfo is not the host
+eq(M.linkParts('https://meet.google.com/abc-defg-hij').host, 'meet.google.com', 'plain host')
+eq(M.linkParts('https://MEET.Google.com:443/x').host, 'meet.google.com', 'host is lowered, port dropped')
+eq(M.linkParts('https://meet.google.com@evil.example/x').host, 'evil.example', 'userinfo is not the host')
+eq(M.meetingProvider('https://meet.google.com@evil.example/x'), '', 'and a spoofed host matches nothing')
+eq(M.linkParts('http://meet.google.com/x'), null, 'plain http is not a link we read')
+eq(M.linkParts('file:///etc/passwd'), null, 'nor is a file path')
+
+eq(M.meetingProvider('https://meet.google.com/abc-defg-hij'), 'Google Meet', 'Meet')
+eq(M.meetingProvider('https://acme.zoom.us/j/9876543210?pwd=x'), 'Zoom', 'Zoom on a vanity subdomain')
+eq(M.meetingProvider('https://teams.microsoft.com/l/meetup-join/19%3ameeting'), 'Microsoft Teams', 'Teams')
+eq(M.meetingProvider('https://app.slack.com/huddle/T01/C02'), 'Slack huddle', 'a huddle is a call')
+eq(M.meetingProvider('https://app.slack.com/client/T01/C02'), '', 'a Slack channel is not')
+eq(M.meetingProvider('https://docs.google.com/document/d/1'), '', 'a doc is not a call')
+eq(M.meetingProvider('https://zoom.us.evil.example/j/1'), '', 'a lookalike host matches nothing')
+
+// links written by hand, with the sentence's punctuation left behind
+eq(M.scrapeLinks('We are on https://meet.google.com/abc-defg-hij.'),
+   ['https://meet.google.com/abc-defg-hij'], 'trailing full stop is not part of the address')
+eq(M.scrapeLinks('(https://acme.zoom.us/j/1), and https://example.com/x'),
+   ['https://acme.zoom.us/j/1', 'https://example.com/x'], 'two links, brackets dropped')
+eq(M.scrapeLinks('nothing here'), [], 'prose with no links')
+eq(M.scrapeLinks(null), [], 'null is empty')
+
+// hangoutLink and the entry point are the same call, said twice
+const meet = M.meetingLinks({
+  conference: { name: 'Google Meet', entries: [
+    { kind: 'video', uri: 'https://meet.google.com/abc-defg-hij' },
+    { kind: 'video', uri: 'https://meet.google.com/abc-defg-hij/' },
+    { kind: 'phone', uri: 'tel:+1-555-0100,,123456789#', label: '+1 555-0100', pin: '123456789' },
+  ]},
+  description: 'Join at https://meet.google.com/abc-defg-hij or dial in.',
+})
+eq(meet.map(m => m.uri), ['https://meet.google.com/abc-defg-hij', 'tel:+1-555-0100,,123456789#'],
+   'one video link, one dial-in; the duplicates collapse')
+eq(meet[0].provider, 'Google Meet', 'named from its host')
+ok(meet[0].openable && !meet[1].openable, 'only https is clickable')
+eq(meet[1].pin, '123456789', 'the pin survives, because a dial-in is useless without it')
+
+// a Zoom link pasted into the notes by hand, with no conferenceData at all
+const pasted = M.meetingLinks({
+  description: 'Agenda below.\nhttps://acme.zoom.us/j/9876543210?pwd=aaa\nSee https://wiki.example.com/page for notes.',
+})
+eq(pasted.map(m => m.uri), ['https://acme.zoom.us/j/9876543210?pwd=aaa'],
+   'the call is picked up and the wiki link is left in the notes')
+eq(pasted[0].provider, 'Zoom', 'named without Google having said so')
+
+// the provider name Google sent is the fallback, never the lead
+eq(M.meetingLinks({ conference: { name: 'Acme Bridge', entries: [
+  { kind: 'video', uri: 'https://bridge.acme.example/r/1' }]}})[0].provider,
+  'Acme Bridge', 'an unknown host keeps the name the API gave it')
+
+eq(M.meetingLinks({}), [], 'an event with no call has no box')
+eq(M.meetingLinks({ description: 'nothing to join' }), [], 'nor does one with only prose')
+
+// a video entry point sorts above the numbers you dial, whatever the order
+// Google listed them in
+const ordered = M.meetingLinks({ conference: { entries: [
+  { kind: 'phone', uri: 'tel:+1-555-0100' },
+  { kind: 'video', uri: 'https://acme.zoom.us/j/1' },
+]}})
+eq(ordered.map(m => m.kind), ['video', 'phone'], 'what you can click comes first')
+
+// ---- one row, not six. A real Teams invitation body: the join link, then
+// four more links on hosts this file recognises, then the dial-in.
+const teamsBody = [
+  '________________________________________________________________',
+  'Microsoft Teams Need help?<https://aka.ms/JoinTeamsMeeting>',
+  'Join the meeting now<https://teams.microsoft.com/l/meetup-join/19%3ameeting_ZjQ>',
+  'Meeting ID: 123 456 789',
+  'Or dial in: +1 555-0100,,123456789# <tel:+15550100,,123456789#>',
+  'Find a local number<https://dialin.teams.microsoft.com/abc>',
+  'For organizers: Meeting options<https://teams.microsoft.com/meetingOptions/?organizerId=1>',
+  '________________________________________________________________',
+].join('\n')
+
+const teamsEvent = {
+  conference: { name: 'Microsoft Teams', entries: [
+    { kind: 'video', uri: 'https://teams.microsoft.com/l/meetup-join/19%3ameeting_ZjQ' },
+    { kind: 'more', uri: 'https://dialin.teams.microsoft.com/abc' },
+    { kind: 'phone', uri: 'tel:+15550100,,123456789#', label: '+1 555-0100' },
+  ]},
+  description: teamsBody,
+}
+eq(M.primaryMeeting(teamsEvent).uri, 'https://teams.microsoft.com/l/meetup-join/19%3ameeting_ZjQ',
+   'the join link, not the meeting-options link beside it')
+eq(M.primaryMeeting(teamsEvent).kind, 'video', 'and it is the video entry point')
+
+// the same event with nothing but the pasted block: the first recognised
+// link in a Teams body is still the join link
+eq(M.primaryMeeting({ description: teamsBody }).uri,
+   'https://teams.microsoft.com/l/meetup-join/19%3ameeting_ZjQ',
+   'scraped, the join link still leads')
+
+// Meet says its link twice and adds a tel.meet page; one row survives
+eq(M.primaryMeeting({
+  conference: { name: 'Google Meet', entries: [
+    { kind: 'video', uri: 'https://meet.google.com/abc-defg-hij' },
+    { kind: 'more', uri: 'https://tel.meet/abc-defg-hij?pin=1' },
+    { kind: 'phone', uri: 'tel:+15550100,,1#', pin: '1' },
+  ]},
+  description: 'Join at https://meet.google.com/abc-defg-hij',
+}).uri, 'https://meet.google.com/abc-defg-hij', 'Meet gives one row too')
+
+// a dial-in alone is still worth showing; there is nothing to click
+eq(M.primaryMeeting({ conference: { entries: [
+  { kind: 'phone', uri: 'tel:+15550100', label: '+1 555-0100' }]}}).kind, 'phone',
+  'with nothing clickable, the number is the answer')
+
+eq(M.primaryMeeting({}), null, 'no call, no row')
+eq(M.primaryMeeting({ description: 'lunch with https://wiki.example.com/x' }), null,
+   'and a wiki link is not a call')
+
+// how a row reads
+const [video, phone] = M.meetingLinks({ conference: { name: 'Zoom Meeting', entries: [
+  { kind: 'video', uri: 'https://acme.zoom.us/j/9876543210?pwd=aaa' },
+  { kind: 'phone', uri: 'tel:+15550100,,9876543210#', label: '+1 555-0100', pin: '4242' },
+]}})
+eq(M.meetingName(video), 'Zoom', 'the host names the row')
+eq(M.meetingDetail(video), 'acme.zoom.us/j/9876543210?pwd=aaa', 'the scheme is not worth eight characters')
+eq(M.meetingCopyText(video), 'https://acme.zoom.us/j/9876543210?pwd=aaa', 'but a copied link keeps it')
+eq(M.meetingName(phone), 'Zoom', 'a dial-in belongs to the same meeting')
+eq(M.meetingDetail(phone), '+1 555-0100  ·  PIN 4242', 'and shows the pin it is useless without')
+eq(M.meetingCopyText(phone), '+15550100,,9876543210#', 'a dialler gets the digits, not the scheme')
+eq(M.meetingName({ kind: 'phone', uri: 'tel:+15550100' }), 'Dial in', 'an unattributed number still has a name')
+eq(M.meetingName({ kind: 'video', uri: 'https://bridge.example/r/1' }), 'bridge.example', 'and an unknown link says where it goes')
+eq(M.meetingDetail(null), '', 'nothing renders as nothing')
+
+// ------------------------------------------------------------------- notes
+
+// the preview is the *first* words, not the last — a single-line input
+// scrolled to its cursor showed the tail of a description and nothing else
+eq(M.notesPreview('Quarterly review.\nBring the deck.'), 'Quarterly review. Bring the deck.',
+   'newlines collapse so the first line is not the whole budget')
+eq(M.notesPreview('\n\n   Agenda: budget'), 'Agenda: budget', 'leading blank lines are not spent')
+ok(M.notesPreview('x'.repeat(400)).startsWith('xxx'), 'a long note starts at its start')
+eq(M.notesPreview('x'.repeat(400)).length, 160, 'and is capped')
+ok(M.notesPreview('x'.repeat(400)).endsWith('…'), 'with the cut marked')
+eq(M.notesPreview(''), '', 'empty stays empty')
+eq(M.notesPreview(null), '', 'so does null')
+eq(M.notesLineCount('a\nb\nc'), 3, 'three lines')
+eq(M.notesLineCount('  \n '), 0, 'whitespace is not a line')
+eq(M.notesLineCount(''), 0, 'nor is nothing')
 
 console.log('all checks passed')

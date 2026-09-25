@@ -198,6 +198,47 @@ os.unlink(loose)
 assert gcal._text("abc", 2) == "ab" and gcal._text(None, 5) == "" and gcal._text({"a": 1}, 5) == ""
 assert len(gcal._text("x" * 20000, gcal.MAX_DESCRIPTION)) == gcal.MAX_DESCRIPTION
 
+# -- the call attached to an event: both places Google says it, coerced to
+#    the one shape the panel draws, with the URI as identity.
+meet = gcal._conference({
+    "hangoutLink": "https://meet.google.com/abc-defg-hij",
+    "conferenceData": {
+        "conferenceSolution": {"name": "Google Meet"},
+        "entryPoints": [
+            {"entryPointType": "video", "uri": "https://meet.google.com/abc-defg-hij"},
+            {"entryPointType": "phone", "uri": "tel:+15550100", "label": "+1 555-0100",
+             "pin": "123456789"},
+            {"entryPointType": "more", "uri": "https://tel.meet/abc?pin=1"},
+        ]}})
+assert meet["name"] == "Google Meet"
+assert [e["uri"] for e in meet["entries"]] == [
+    "https://meet.google.com/abc-defg-hij", "tel:+15550100", "https://tel.meet/abc?pin=1"], \
+    "hangoutLink and its entry point are one link, not two: " + repr(meet)
+assert meet["entries"][1]["pin"] == "123456789", "a dial-in without its pin is useless"
+assert gcal._conference({}) == {}, "no call, no box"
+assert gcal._conference({"conferenceData": {"entryPoints": []}}) == {}
+
+# junk in any field is coerced or dropped, never passed through
+junk = gcal._conference({
+    "hangoutLink": {"not": "a string"},
+    "conferenceData": {
+        "conferenceSolution": ["not", "a", "dict"],
+        "entryPoints": [
+            "not a dict",
+            {"entryPointType": "video"},                        # no uri
+            {"entryPointType": "carrier pigeon", "uri": "https://x.example/1"},
+            {"entryPointType": "video", "uri": "https://ok.example/1\r\nInjected: yes",
+             "label": {"nope": 1}, "pin": None},
+        ]}})
+assert junk["name"] == "", "a non-dict solution has no name"
+assert [e["uri"] for e in junk["entries"]] == ["https://ok.example/1Injected: yes"], \
+    "control characters never survive into a URI: " + repr(junk)
+assert junk["entries"][0]["label"] == "" and junk["entries"][0]["pin"] == ""
+
+flood = gcal._conference({"conferenceData": {"entryPoints": [
+    {"entryPointType": "phone", "uri": "tel:+1555%04d" % i} for i in range(50)]}})
+assert len(flood["entries"]) == gcal.MAX_CONFERENCE_ENTRIES, "entry points are capped"
+
 # -- whole-result ceilings: total events across calendars, and total output
 gcal.api = lambda account, path, params=None, payload=None, method=None, budget=None: (
     {"items": [{"id": "primary", "summary": "W", "accessRole": "owner"}]} if path.endswith("calendarList")
@@ -513,6 +554,7 @@ CALS = [{"id": "primary", "summary": "Work", "backgroundColor": "#111111",
         {"id": "muted", "summary": "Noise", "backgroundColor": "#222222",
          "accessRole": "reader"}]
 EVENTS = [{"id": "1", "summary": "Standup", "colorId": "3",
+           "hangoutLink": "https://meet.google.com/abc-defg-hij",
            "start": {"dateTime": "2026-01-01T09:00:00Z"},
            "end": {"dateTime": "2026-01-01T09:15:00Z"}},
           {"id": "2", "summary": "Holiday", "start": {"date": "2026-01-02"},
@@ -542,6 +584,9 @@ assert got[0]["writable"] is True and got[0]["account"] == "a@b.com"
 assert paths.count("/colors") == 1, "palette fetched once per account"
 assert not any("muted" in p for p in paths), "disabled calendar was queried"
 assert sum(1 for p in paths if p.endswith("/events")) == 2, "both pages fetched"
+assert got[0]["conference"]["entries"][0]["uri"] == "https://meet.google.com/abc-defg-hij", \
+    "the call travels with the event"
+assert got[1]["conference"] == {}, "an event without one carries an empty field, not a missing one"
 
 # -- the calendar list and palette come from the TTL cache on the second run
 before = len(paths)

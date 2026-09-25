@@ -35,6 +35,11 @@ Rectangle {
   readonly property bool showClock: !root.compact
     && (root.clockAlways || (root.height > Style.space(28) && root.width > Style.space(92)))
   readonly property bool inlineClock: root.compact && root.clockAlways
+  // The call on this event, evaluated once when the event changes and
+  // shared by the marker and the tooltip. A meeting you can join is worth
+  // knowing about without opening the event to find out.
+  readonly property var call: (!overflow && event) ? Model.primaryMeeting(event) : null
+  readonly property bool hasCall: call !== null
 
   color: overflow
     ? (hover.containsMouse ? Util.alpha(Color.accent, 0.26) : Util.alpha(panel.ink, 0.13))
@@ -133,17 +138,41 @@ Rectangle {
     spacing: 0
 
     // In a narrow lane the start time costs a whole line of a title that has
-    // only a few characters to spend. The tooltip still carries it; "Always"
-    // overrides the trade-off.
-    Text {
+    // only a few characters to spend. The tooltip still carries it.
+    Item {
       width: parent.width
+      height: startLabel.implicitHeight
       visible: root.showClock
-      text: Model.clockLabel(root.event.startAt, root.panel.hours12)
-      textFormat: Text.PlainText
-      color: Util.alpha(root.panel.ink, 0.6)
-      font.family: root.panel.mono
-      font.pixelSize: Style.font.caption
-      elide: Text.ElideRight
+
+      Text {
+        id: startLabel
+        anchors.left: parent.left
+        // Anchored left with no width, eliding would never fire; the marker
+        // beside it is what the remaining room has to be shared with.
+        width: Math.min(implicitWidth,
+                        parent.width - (callMarker.visible ? callMarker.width + Style.space(4) : 0))
+        text: Model.clockLabel(root.event.startAt, root.panel.hours12)
+        textFormat: Text.PlainText
+        color: Util.alpha(root.panel.ink, 0.6)
+        font.family: root.panel.mono
+        font.pixelSize: Style.font.caption
+        elide: Text.ElideRight
+      }
+
+      // The call marker rides beside the clock rather than on the title's
+      // line: the title is the thing the chip exists to show, and this is
+      // one glyph's worth of an answer to "is this a meeting I dial into".
+      Text {
+        id: callMarker
+        anchors.left: startLabel.right
+        anchors.leftMargin: Style.space(4)
+        anchors.baseline: startLabel.baseline
+        visible: root.hasCall
+        text: "󰕧"
+        color: Util.alpha(root.panel.ink, 0.7)
+        font.family: root.panel.mono
+        font.pixelSize: Style.font.caption
+      }
     }
 
     Text {
@@ -199,6 +228,7 @@ Rectangle {
           + "\n" + Model.rangeLabel(root.event, root.panel.hours12)
           + "\n" + root.event.calendarName
           + (root.event.location ? "\n󰍎 " + root.event.location : "")
+          + (root.hasCall ? "\n󰕧 " + Model.meetingName(root.call) : "")
     }
   }
 }
