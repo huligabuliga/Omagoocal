@@ -429,5 +429,11 @@ eq(M.notesPreview(null), '', 'so does null')
 eq(M.notesLineCount('a\nb\nc'), 3, 'three lines')
 eq(M.notesLineCount('  \n '), 0, 'whitespace is not a line')
 eq(M.notesLineCount(''), 0, 'nor is nothing')
+// calendar-filter chip labels stay one short line
+eq(M.shortCalendarName('Work'), 'Work', 'a short name passes through')
+eq(M.shortCalendarName('Very long calendar name indeed'), 'Very long calendar', 'cut at a word boundary')
+ok(M.shortCalendarName('Supercalifragilisticexpialidocious').length <= 18, 'a long single word is bounded')
+ok(M.shortCalendarName('Supercalifragilisticexpialidocious').indexOf('…') !== -1, 'and elided')
+eq(M.shortCalendarName(''), 'Calendar', 'an empty name still yields a chip')
 
 console.log('all checks passed')

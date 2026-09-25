@@ -341,12 +341,21 @@ Panel {
           color: root.hair
         }
 
+        // One chip per calendar: hide or show its events without leaving the
+        // view. Collapses to nothing while the settings page is open.
+        CalendarFilter {
+          id: calendarFilter
+          width: parent.width
+          panel: root
+        }
+
         // ---- Body. One Loader, cross-faded on every view change, so the
         //      whole surface reads as one object being turned rather than
         //      four panes being swapped.
         Item {
           width: parent.width
-          height: parent.height - header.height - Style.space(10) * 2 - 1
+          height: parent.height - header.height - calendarFilter.height
+            - Style.space(10) * 3 - 1
 
           Loader {
             id: body
