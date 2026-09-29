@@ -65,6 +65,16 @@ Item {
                   function() { if (root && root.response === value) root.response = root.confirmed })
   }
 
+  // What the fields held when the card opened. JOIN takes the card away
+  // with the calendar, and an edit nobody saved must not go with it.
+  function fields() {
+    return JSON.stringify([titleField.text, startDayField.text, startTimeField.text,
+                           endDayField.text, endTimeField.text, locationField.text,
+                           notesArea.text, allDay, colorId, calendarKey])
+  }
+  property string pristine: ""
+  Component.onCompleted: pristine = fields()
+
   readonly property var parsedStart: {
     var day = Model.parseDayInput(startDayField.text)
     if (!day) return null
@@ -465,7 +475,7 @@ Item {
               bordered: true
               onClicked: {
                 if (!root.meeting) return
-                if (joinable) root.panel.joinCall(root.meeting.uri)
+                if (joinable) root.panel.joinCall(root.meeting.uri, root.fields() !== root.pristine)
                 else {
                   Quickshell.clipboardText = Model.meetingCopyText(root.meeting)
                   copied = true

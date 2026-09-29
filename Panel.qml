@@ -281,11 +281,12 @@ Panel {
 
   // Joining a call is the last thing you do with the calendar before the
   // meeting takes the screen, so the card and the panel both get out of
-  // the way.
-  function joinCall(uri) {
+  // the way — unless the card holds an edit not yet saved, which closing
+  // would throw away.
+  function joinCall(uri, unsaved) {
     if (!Model.isWebLink(uri)) return
     Quickshell.execDetached(["/usr/bin/xdg-open", uri])
-    close()
+    if (!unsaved) close()
   }
 
   // ---------------------------------------------------------- lifecycle

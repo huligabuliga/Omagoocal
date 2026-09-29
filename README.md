@@ -159,7 +159,8 @@ not change.
 
 **JOIN** closes the event card and the calendar as it opens the call:
 the meeting is what you want on screen now, not the panel you started it
-from.
+from. A card with an edit you have not saved stays open, so the edit is not
+lost.
 
 The card is the editor, and the editor refuses read-only calendars, so a
 call on a calendar you cannot write to is reached with middle click, which
