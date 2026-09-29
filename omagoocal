@@ -424,7 +424,7 @@ def request(url, data=None, headers=None, method=None, budget=None, _retried=Fal
                 if budget:
                     budget.charge(nbytes=len(chunk))
     except urllib.error.HTTPError as exc:
-        detail = exc.read(4096).decode(errors="replace")[:400]
+        detail = _google_error(exc.read(4096).decode(errors="replace"))
         # A single retry for the statuses Google uses for "not right now".
         # Reads are idempotent; a write is retried only on 429, where the
         # server has not acted on it.
@@ -432,8 +432,19 @@ def request(url, data=None, headers=None, method=None, budget=None, _retried=Fal
                 and (method in (None, "GET") or exc.code == 429)):
             time.sleep(RETRY_DELAY)
             return request(url, data, headers, method, budget, _retried=True)
-        raise RuntimeError("%s %s: %s" % (exc.code, url.split("?")[0], detail))
+        raise RuntimeError("%s %s" % (exc.code, detail))
     return json.loads(bytes(raw)) if raw else {}
+
+
+def _google_error(body):
+    """Google's own sentence for a failed call ("Not Found", "Forbidden"),
+    not the JSON around it: this is the line the panel shows. Anything else
+    it sent is passed on, cut short."""
+    try:
+        message = json.loads(body)["error"]["message"]
+    except (ValueError, KeyError, TypeError):
+        message = None
+    return _CONTROL.sub(" ", message if isinstance(message, str) else body)[:400].strip()
 
 
 def api(account, path, params=None, payload=None, method=None, budget=None):

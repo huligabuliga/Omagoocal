@@ -516,6 +516,18 @@ class _Fail:
         if code == 200: return _Resp(b'{"ok": true}')
         raise gcal.urllib.error.HTTPError(req.full_url, code, "nope", {}, io.BytesIO(b""))
 real_open = gcal._opener.open; real_delay = gcal.RETRY_DELAY; gcal.RETRY_DELAY = 0
+# -- a failure reads as Google's sentence, not its JSON
+assert gcal._google_error('{"error": {"code": 404, "message": "Not Found"}}') == "Not Found"
+assert gcal._google_error('{"error": "x"}') == '{"error": "x"}'
+assert gcal._google_error("<html>\n" + "z" * 999) == "<html> " + "z" * 393
+def _fail404(req, timeout=None):
+    raise gcal.urllib.error.HTTPError(req.full_url, 404, "nope", {},
+                                      io.BytesIO(b'{"error": {"code": 404, "message": "Not Found"}}'))
+gcal._opener.open = _fail404
+try:
+    gcal.request(gcal.API + "/x"); raise AssertionError("404 must raise")
+except RuntimeError as exc:
+    assert str(exc) == "404 Not Found", str(exc)
 f = _Fail([503, 200]); gcal._opener.open = f
 assert gcal.request(gcal.API + "/x") == {"ok": True} and f.calls == 2, "one retry then success"
 f = _Fail([429, 429]); gcal._opener.open = f
