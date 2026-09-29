@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.2.0 — 2026-09-29
+
+- **Answer invitations from the card**: an event somebody else invited you to
+  shows GOING? with YES / MAYBE / NO. The answer goes out on click, carries
+  only your own row of the guest list, and tells the organiser, the way
+  Google Calendar does. *@Frafal* (#7)
+- **JOIN closes the calendar** as it opens the call, unless the card holds an
+  edit you have not saved. *@Frafal* (#7)
+- A short chip shows the call glyph too.
+- Fixes on merge: a failed answer falls back to the last one Google accepted;
+  a card closed while its answer was in flight no longer throws; a failed
+  call reads as Google's sentence ("404 Not Found"), not its JSON.
+
 ## 1.1.0 — 2026-09-25
 
 First release with outside contributions. Thank you all.
