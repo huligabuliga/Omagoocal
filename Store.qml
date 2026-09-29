@@ -497,11 +497,15 @@ Item {
     function settle(result) {
       store.busy = false
       store.mutating = false
-      if (result.error) { store.error = result.error; if (failed) failed() }
-      else if (pending) pending()
+      // Release the queue before calling back: a callback whose owner has
+      // gone (a card closed while its answer was in flight) may throw, and
+      // must not take the next mutation down with it.
+      var done = pending, fail = failed
       pending = null
       failed = null
       Qt.callLater(store.pumpMutations)
+      if (result.error) { store.error = result.error; if (fail) fail() }
+      else if (done) done()
     }
   }
 

@@ -50,13 +50,19 @@ Item {
   // written into the draft: replacing `panel.editing` would re-run every
   // field's binding and throw away whatever has been typed.
   readonly property bool invited: !!(draft && draft.attendance && draft.attendance.email)
-  property string response: invited ? String(draft.attendance.response || "needsAction") : ""
+  // The last answer Google accepted, and the one on screen, which moves
+  // first; a failed click falls back to the former.
+  property string confirmed: invited ? String(draft.attendance.response || "needsAction") : ""
+  property string response: confirmed
 
   function answer(value) {
     if (!invited || value === response) return
-    var before = response
     response = value                     // the button moves first; Google catches up
-    panel.respond(draft, value, function() { root.response = before })
+    panel.respond(draft, value,
+                  // `root` is null once the card has closed under the request.
+                  function() { if (root) root.confirmed = value },
+                  // A later click still in flight is not undone by this one failing.
+                  function() { if (root && root.response === value) root.response = root.confirmed })
   }
 
   readonly property var parsedStart: {
