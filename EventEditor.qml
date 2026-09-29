@@ -46,9 +46,17 @@ Item {
     notesArea.cursorPosition = 0
   }
 
-  // The same rule the chips follow: only a web link is ever handed out.
-  function openLink(url) {
-    if (Model.isWebLink(url)) Quickshell.execDetached(["/usr/bin/xdg-open", url])
+  // Your answer to the invitation, when this is one. Held here rather than
+  // written into the draft: replacing `panel.editing` would re-run every
+  // field's binding and throw away whatever has been typed.
+  readonly property bool invited: !!(draft && draft.attendance && draft.attendance.email)
+  property string response: invited ? String(draft.attendance.response || "needsAction") : ""
+
+  function answer(value) {
+    if (!invited || value === response) return
+    var before = response
+    response = value                     // the button moves first; Google catches up
+    panel.respond(draft, value, function() { root.response = before })
   }
 
   readonly property var parsedStart: {
@@ -313,6 +321,51 @@ Item {
           }
         }
 
+        // ---- Your answer, when somebody else invited you.
+        //
+        //      Sent the moment it is clicked, not with Save: it is a reply to
+        //      the organiser, not an edit to the event.
+        Item {
+          width: parent.width
+          height: rsvpRow.implicitHeight
+          visible: root.invited
+
+          Text {
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.response === "needsAction" ? "GOING?  ·  NOT ANSWERED" : "GOING?"
+            color: root.panel.faint
+            font.family: root.panel.mono
+            font.pixelSize: Style.font.caption
+            font.letterSpacing: 1.4
+          }
+
+          Row {
+            id: rsvpRow
+            anchors.right: parent.right
+            spacing: Style.space(4)
+
+            Repeater {
+              model: [{ label: "YES", value: "accepted" },
+                      { label: "MAYBE", value: "tentative" },
+                      { label: "NO", value: "declined" }]
+
+              Button {
+                required property var modelData
+                readonly property bool picked: root.response === modelData.value
+                text: modelData.label
+                selected: picked
+                foreground: picked ? Color.accent : root.panel.dim
+                accent: Color.accent
+                fontFamily: root.panel.mono
+                fontSize: Style.font.caption
+                bordered: true
+                onClicked: root.answer(modelData.value)
+              }
+            }
+          }
+        }
+
         // ---- The call, when there is one.
         //
         //      Read-only: the link is Google's, or somebody's paste into the
@@ -406,7 +459,7 @@ Item {
               bordered: true
               onClicked: {
                 if (!root.meeting) return
-                if (joinable) root.openLink(root.meeting.uri)
+                if (joinable) root.panel.joinCall(root.meeting.uri)
                 else {
                   Quickshell.clipboardText = Model.meetingCopyText(root.meeting)
                   copied = true

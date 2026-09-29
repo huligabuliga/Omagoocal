@@ -672,6 +672,34 @@ def _conference(ev):
     return {"name": name, "entries": out} if out else {}
 
 
+# What an invitee may answer. `needsAction` is Google's word for "not yet",
+# which is where an invitation starts and never somewhere you go back to.
+RESPONSES = ("accepted", "tentative", "declined")
+
+
+def _attendance(ev):
+    """Your own place on the guest list, or {} when you have none.
+
+    Google marks the attendee that is the calendar's owner with `self`. An
+    event you organise is yours to hold, not to answer, so it gets no
+    buttons either; only an invitation does."""
+    guests = ev.get("attendees")
+    if not isinstance(guests, list):
+        return {}
+    for guest in guests[:MAX_ITEMS]:
+        if not isinstance(guest, dict) or guest.get("self") is not True:
+            continue
+        if guest.get("organizer") is True:
+            return {}
+        email = _CONTROL.sub("", _text(guest.get("email"), MAX_SHORT))
+        if not email:
+            return {}
+        status = _text(guest.get("responseStatus"), MAX_SHORT)
+        return {"email": email,
+                "response": status if status in RESPONSES else "needsAction"}
+    return {}
+
+
 def events(time_min, time_max, calendars=None, fresh=False):
     active = [c for c in (calendar_list(fresh) if calendars is None else calendars)
               if not c.get("error") and c["enabled"]]
@@ -723,6 +751,7 @@ def events(time_min, time_max, calendars=None, fresh=False):
                 "description": _text(ev.get("description"), MAX_DESCRIPTION),
                 "link": _text(ev.get("htmlLink"), MAX_SHORT),
                 "conference": _conference(ev),
+                "attendance": _attendance(ev),
                 "writable": cal["writable"],
                 "recurring": isinstance(ev.get("recurringEventId"), str),
             })
@@ -766,6 +795,27 @@ def save(args):
     return api(args["account"], path, payload=_body(args), method="POST")
 
 
+def respond(args):
+    """Answer an invitation: yes, maybe or no.
+
+    Only your own row is sent. `attendeesOmitted` is how the API is told the
+    list is partial on purpose, so the other guests are left exactly as they
+    are rather than replaced by a list of one. The organiser hears about it
+    the way they would from Google Calendar itself."""
+    _require(args, "account", "calendarId", "id", "email", "response")
+    if args["response"] not in RESPONSES:
+        raise RuntimeError("Response must be one of " + ", ".join(RESPONSES))
+    api(args["account"],
+        "/calendars/%s/events/%s" % (urllib.parse.quote(args["calendarId"], safe=""),
+                                     urllib.parse.quote(args["id"], safe="")),
+        params={"sendUpdates": "all"},
+        payload={"attendeesOmitted": True,
+                 "attendees": [{"email": _text(args["email"], MAX_SHORT),
+                                "responseStatus": args["response"]}]},
+        method="PATCH")
+    return {"ok": True}
+
+
 def delete(args):
     _require(args, "account", "calendarId", "id")
     api(args["account"],
@@ -778,7 +828,7 @@ def delete(args):
 # ----------------------------------------------------------------- dispatch
 
 def _payload(argv):
-    """The JSON document for save/delete/setall: one line on stdin, the way
+    """The JSON document for save/delete/respond/setall: one line on stdin, the way
     Omarchy's own network panel hands a Wi-Fi secret to nmcli. Event text and
     config never appear in argv, which every local process can read, so an
     extra argument is refused rather than read."""
@@ -850,11 +900,11 @@ def main(argv):
         if not cfg.get("snapshot", True):
             _remove(LAST_SYNC)
         return {"ok": True}
-    if cmd in ("save", "delete"):
+    if cmd in ("save", "delete", "respond"):
         args = _payload(argv)
         if not isinstance(args, dict):
             raise RuntimeError("Payload must be a JSON object")
-        return save(args) if cmd == "save" else delete(args)
+        return {"save": save, "delete": delete, "respond": respond}[cmd](args)
     raise RuntimeError("Unknown command: " + cmd)
 
 

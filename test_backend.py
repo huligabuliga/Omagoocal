@@ -239,6 +239,41 @@ flood = gcal._conference({"conferenceData": {"entryPoints": [
     {"entryPointType": "phone", "uri": "tel:+1555%04d" % i} for i in range(50)]}})
 assert len(flood["entries"]) == gcal.MAX_CONFERENCE_ENTRIES, "entry points are capped"
 
+# -- your own place on the guest list: only an invitation can be answered
+guests = [{"email": "boss@x.com", "organizer": True, "responseStatus": "accepted"},
+          {"email": "a@b.com", "self": True, "responseStatus": "tentative"}]
+assert gcal._attendance({"attendees": guests}) == {"email": "a@b.com", "response": "tentative"}
+assert gcal._attendance({}) == {}, "no guest list, nothing to answer"
+assert gcal._attendance({"attendees": [guests[0]]}) == {}, "not on the list, nothing to answer"
+assert gcal._attendance({"attendees": [{"email": "a@b.com", "self": True, "organizer": True}]}) == {}, \
+    "your own event is not an invitation"
+assert gcal._attendance({"attendees": [{"email": "a@b.com", "self": True}]})["response"] == "needsAction"
+assert gcal._attendance({"attendees": [{"email": "a@b.com", "self": True,
+                                        "responseStatus": "whatever"}]})["response"] == "needsAction"
+assert gcal._attendance({"attendees": "nope"}) == {}
+assert gcal._attendance({"attendees": [{"email": {"x": 1}, "self": True}]}) == {}
+
+# -- answering sends only your own row, marked partial, and notifies
+sent = []
+gcal.api = lambda account, path, params=None, payload=None, method=None, budget=None: \
+    sent.append((account, path, params, payload, method)) or {}
+assert gcal.respond({"account": "a@b.com", "calendarId": "c@x", "id": "e/1",
+                     "email": "a@b.com", "response": "declined"}) == {"ok": True}
+account, path, params, payload, method = sent[0]
+assert method == "PATCH" and path.endswith("/events/e%2F1"), path
+assert params == {"sendUpdates": "all"}
+assert payload == {"attendeesOmitted": True,
+                   "attendees": [{"email": "a@b.com", "responseStatus": "declined"}]}, payload
+for bad in ({"account": "a@b.com", "calendarId": "c", "id": "e", "email": "a@b.com", "response": "needsAction"},
+            {"account": "a@b.com", "calendarId": "c", "id": "e", "email": "a@b.com", "response": "sure"},
+            {"account": "a@b.com", "calendarId": "c", "id": "e", "response": "accepted"}):
+    try:
+        gcal.respond(bad); raise AssertionError("must refuse: " + repr(bad))
+    except RuntimeError:
+        pass
+assert len(sent) == 1, "a refused answer never reaches the API"
+gcal.api = unstubbed_api
+
 # -- whole-result ceilings: total events across calendars, and total output
 gcal.api = lambda account, path, params=None, payload=None, method=None, budget=None: (
     {"items": [{"id": "primary", "summary": "W", "accessRole": "owner"}]} if path.endswith("calendarList")

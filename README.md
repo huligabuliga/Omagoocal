@@ -124,6 +124,8 @@ packages only for this plugin, uninstall `gnome-online-accounts-gtk` and
 | Event click | Edit |
 | Event middle click | Open in Google Calendar |
 | 󰕧 on a chip | The event has a call. Open it for the link. |
+| JOIN on a card | Opens the call and closes the calendar |
+| YES / MAYBE / NO on a card | Answers the invitation, right away |
 | `+N more` | Too many events to show side by side — opens the day view |
 
 Keys while the panel is open: `D` `W` `M` switch view, `T` today, `N` new
@@ -155,9 +157,27 @@ spreadsheet is worse than no box. The link is read, never rewritten: the
 box is not editable, and saving an event never sends a description you did
 not change.
 
+**JOIN** closes the event card and the calendar as it opens the call:
+the meeting is what you want on screen now, not the panel you started it
+from.
+
 The card is the editor, and the editor refuses read-only calendars, so a
 call on a calendar you cannot write to is reached with middle click, which
 opens the event in Google Calendar.
+
+### Answering an invitation
+
+An event somebody else invited you to shows **GOING?** on its card, with
+**YES**, **MAYBE** and **NO**. Your current answer is the highlighted one,
+and an invitation you have not answered yet says so. An event you
+organised has nothing to answer and shows no row.
+
+The answer goes out the moment you click, not with Save: it is a reply to
+the organiser, not an edit, so it neither waits for the rest of the card nor
+closes it. Only your own row of the guest list is sent — marked to the API
+as partial, so every other guest is left exactly as they were — and the
+organiser is notified the way Google Calendar would notify them. On a
+recurring event it answers that occurrence, like every other edit here.
 
 ### Notes
 

@@ -265,6 +265,29 @@ Panel {
            function() { editing = draft })
   }
 
+  // An answer to an invitation goes out on its own, the moment it is
+  // clicked, the way Google Calendar sends it: it is not an edit, so it
+  // neither waits for Save nor closes the card.
+  function respond(ev, response, onFail) {
+    if (!store || !ev.attendance || !ev.attendance.email) return
+    store.mutate("respond", {
+      account: ev.account,
+      calendarId: ev.calendarId,
+      id: ev.id,
+      email: ev.attendance.email,
+      response: response
+    }, function() { root.invalidate() }, onFail)
+  }
+
+  // Joining a call is the last thing you do with the calendar before the
+  // meeting takes the screen, so the card and the panel both get out of
+  // the way.
+  function joinCall(uri) {
+    if (!Model.isWebLink(uri)) return
+    Quickshell.execDetached(["/usr/bin/xdg-open", uri])
+    close()
+  }
+
   // ---------------------------------------------------------- lifecycle
   function open() {
     root.controller.show()
