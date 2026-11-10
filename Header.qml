@@ -64,6 +64,7 @@ Item {
       Button {
         anchors.verticalCenter: parent.verticalCenter
         text: "TODAY"
+        tooltipText: "Today  T"
         bordered: true
         enabled: !panel.onToday
         opacity: enabled ? 1 : 0.45
@@ -94,9 +95,9 @@ Item {
       fontSize: Style.font.caption
       value: panel.view
       options: [
-        { value: "day", label: "DAY" },
-        { value: "week", label: "WEEK" },
-        { value: "month", label: "MONTH" }
+        { value: "day", label: "DAY", tooltip: "Day view  D" },
+        { value: "week", label: "WEEK", tooltip: "Week view  W" },
+        { value: "month", label: "MONTH", tooltip: "Month view  M" }
       ]
       onChanged: function(v) { panel.setView(v) }
     }
