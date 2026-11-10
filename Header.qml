@@ -89,7 +89,12 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       visible: panel.connected
       foreground: panel.ink
-      background: Color.popups.background
+      // Explicitly transparent: ButtonGroup's own default is Color.background,
+      // opaque, and Button animates its fill on hover — from an opaque fill it
+      // reaches the 8% hover wash through a midpoint brighter than either end.
+      // That midpoint is the flash these three had and TODAY never did;
+      // transparent is the path TODAY takes.
+      background: "transparent"
       accent: Color.accent
       fontFamily: panel.mono
       fontSize: Style.font.caption
