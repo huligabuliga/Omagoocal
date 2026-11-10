@@ -61,9 +61,18 @@ Item {
     return allDayRows[index] || []
   }
 
-  // Three banners is as deep as the band goes before it starts eating the
-  // grid. Anything past that is counted, not dropped.
-  readonly property int allDayCap: 3
+  // Three banners is as deep as a week column goes before the band starts
+  // eating the grid. Anything past that is counted, not dropped.
+  //
+  // A day column is seven times the week's width for one day, and the day
+  // view is where a week column's "+N more" sends you. Capping it at three
+  // too made that click a promise the view could not keep, and left the
+  // fourth all-day event unreachable everywhere. It now shows as many as the
+  // band can hold while leaving the grid two hours, three at the very least.
+  readonly property int allDayCap: panel.view === "day"
+    ? Math.max(3, Math.floor((height - headHeight - hourHeight * 2)
+                             / Style.space(20)))
+    : 3
   readonly property int allDayDepth: {
     var max = 0
     for (var i = 0; i < allDayRows.length; i++) max = Math.max(max, allDayRows[i].length)
