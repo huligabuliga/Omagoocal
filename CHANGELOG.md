@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.2.1 — 2026-11-10
+
+Five fixes from one contributor. Thank you.
+
+- **Open on is honoured on every open**, not only at shell start: the panel
+  comes back on the configured view, wherever it was left — settings
+  included. *@pandelig* (#8)
+- **The day view's all-day band holds what the week's "+N more" promises**:
+  as many banners as fit while leaving the grid two hours, instead of three.
+  The week column still shows three. *@pandelig* (#9)
+- **TODAY and DAY / WEEK / MONTH have tooltips** with their keys, like the
+  rest of the row. *@pandelig* (#10)
+- **The month cell's + no longer flickers under the pointer.** *@pandelig*
+  (#11)
+- **The view chips no longer flash bright on hover.** *@pandelig* (#12)
+
 ## 1.2.0 — 2026-09-29
 
 - **Answer invitations from the card**: an event somebody else invited you to
