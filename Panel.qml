@@ -293,6 +293,12 @@ Panel {
   function open() {
     root.controller.show()
     now = new Date()
+    // "Open on" is a setting, not a first-run default: every open lands on
+    // it. The panel outlives its popup — one instance per shell — so
+    // otherwise the view left behind, Settings included, is the one that
+    // comes back.
+    settingsPinned = false
+    route(true)
     if (!everSynced || !onToday) goToday()
     else ensureRange()
   }

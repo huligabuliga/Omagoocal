@@ -211,6 +211,13 @@ shown, an optional strip of calendar chips under the header (click one to
 hide that calendar without opening settings), the hour the grid opens on,
 how tall an hour is, and refresh interval.
 
+### Opening view
+
+**Open on** picks the view every open starts on: day, week or month. It is a
+setting, not a first-run default — where the panel was left last, settings
+included, no longer decides. If the panel was left on a date in another week
+or month, opening it on week or month returns to the current one.
+
 ### Keeping a calendar out of the bar
 
 Each calendar has two controls, not one. The switch is visibility: off, and
