@@ -155,6 +155,13 @@ Item {
               readonly property var dayEvents: Model.onDay(root.panel.events, modelData)
               readonly property int overflow: dayEvents.length - root.chipCapacity
 
+              // Set by the add button below: that button has a MouseArea of
+              // its own, which takes hover from cellMouse the moment the
+              // pointer lands on it. Visibility has to remember both, or the
+              // button hides itself, hands hover back to the cell, and
+              // reappears under the pointer for as long as it is there.
+              property bool addHovered: false
+
               width: root.cellWidth
               height: parent.height
 
@@ -240,12 +247,13 @@ Item {
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.margins: Style.space(2)
-                visible: cellMouse.containsMouse
+                visible: cellMouse.containsMouse || cell.addHovered
                 iconText: "󰐕"
                 fontSize: Style.font.caption
                 foreground: root.panel.faint
                 hoverColor: Color.accent
                 tooltipText: "New event"
+                onHovered: function(isHovered) { cell.addHovered = isHovered }
                 onClicked: root.panel.compose(
                   new Date(cell.modelData.getFullYear(), cell.modelData.getMonth(),
                            cell.modelData.getDate(), 9, 0), false)
